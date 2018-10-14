@@ -1,0 +1,64 @@
+{
+    "name": "mam.client.ts",
+    "private": false,
+    "version": "0.1.0",
+    "main": "out/mam/src/index.js",
+    "typings": "typings/mam/src",
+    "scripts": {
+        "prepare": "tsc",
+        "test": "tsc && nyc ava",
+        "test-ci": "nyc ava",
+        "format": "prettier",
+        "docs": "tsc && jsdoc2md --no-cache --plugin dmd-clear -t README_tpl.hbs --files './out/**/*.js' > README.md"
+    },
+    "contributors": [
+        "Jelle Millenaar <jmillenaar@vxcompany.com> (vxcompany.com)"
+    ],
+    "ava": {
+        "files": [
+            "out/test/*.test.js"
+        ],
+        "failFast": true,
+        "failWithoutAssertions": false,
+        "compileEnhancements": false,
+        "verbose": true
+    },
+    "nyc": {
+        "watermarks": {
+            "functions": [
+                80,
+                95
+            ],
+            "branches": [
+                80,
+                95
+            ],
+            "statements": [
+                80,
+                95
+            ]
+        },
+        "include": [
+            "out/src/*.js",
+            "out/test/*.js"
+        ]
+    },
+    "dependencies": {
+        "@iota/converter": "^1.0.0-beta.5",
+        "@iota/core": "^1.0.0-beta.5",
+        "@iota/curl": "^1.0.0-beta.5",
+        "babel-polyfill": "^6.26.0",
+        "browserify": "^16.1.1",
+        "pify": "^3.0.0"
+    },
+    "devDependencies": {
+        "ava": "^0.25.0",
+        "nyc": "^12.0.2",
+        "@types/node": "^10.11.7",
+        "babel-cli": "6.26.0",
+        "babel-core": "6.26.0",
+        "babel-plugin-add-module-exports": "0.2.1",
+        "babel-preset-env": "1.6.1",
+        "typescript": "^3.1.3"
+    }
+}
