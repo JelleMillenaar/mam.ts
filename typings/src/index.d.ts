@@ -54,7 +54,7 @@ export declare class MamReader {
     constructor(provider: string, root: string, mode?: MAM_MODE, sideKey?: string);
     changeMode(root: string, mode: MAM_MODE, sideKey?: string): void;
     fetchSingle(root?: string, mode?: MAM_MODE, sidekey?: string, rounds?: number): Promise<{
-        payload: string;
+        message: string;
         nextRoot: string;
     }>;
     fetch(callback?: any, root?: string, mode?: MAM_MODE, sidekey?: string, rounds?: number): Promise<{

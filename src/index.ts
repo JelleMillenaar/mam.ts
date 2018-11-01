@@ -192,8 +192,8 @@ export class MamReader {
         this.next_root = root;
     } 
 
-    public async fetchSingle (root : string = this.next_root, mode : MAM_MODE = this.mode, sidekey : string = this.sideKey, rounds : number = 81) : Promise<{ payload : string, nextRoot : string}> { //TODO: test, Returning a Promise correct?
-        return new Promise<{ payload : string, nextRoot : string}> (async (resolve, reject) => {
+    public async fetchSingle (root : string = this.next_root, mode : MAM_MODE = this.mode, sidekey : string = this.sideKey, rounds : number = 81) : Promise<{ message : string, nextRoot : string}> { //TODO: test, Returning a Promise correct?
+        return new Promise<{ message : string, nextRoot : string}> (async (resolve, reject) => {
             let address : string = root;
             if( mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
                 address = hash(root, rounds);
@@ -207,7 +207,7 @@ export class MamReader {
                         //Unmask the message
                         const { payload, next_root } = Decode(message, sidekey, root);
                         //Return payload
-                        resolve( { payload : converter.trytesToAscii(payload), nextRoot : next_root } );
+                        resolve( { message : converter.trytesToAscii(payload), nextRoot : next_root } );
                     } catch(e) {
                         reject(`failed to parse: ${e}`);
                     }

@@ -240,7 +240,7 @@ var MamReader = /** @class */ (function () {
                                                 try {
                                                     _a = Decode(message, sidekey, root), payload = _a.payload, next_root = _a.next_root;
                                                     //Return payload
-                                                    resolve({ payload: converter.trytesToAscii(payload), nextRoot: next_root });
+                                                    resolve({ message: converter.trytesToAscii(payload), nextRoot: next_root });
                                                 }
                                                 catch (e) {
                                                     reject("failed to parse: " + e);
