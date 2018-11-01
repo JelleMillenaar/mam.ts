@@ -4,11 +4,12 @@ import * as crypto from 'crypto';
 import * as Encryption from './encryption';
 import * as pify from 'pify';
 import * as converter from '@iota/converter';
-import { composeAPI, createPrepareTransfers, API } from '@iota/core';
+import { composeAPI, createPrepareTransfers, API, createFindTransactions } from '@iota/core';
 import { Transaction, Transfer } from '@iota/core/typings/types';
 import { Mam } from './node'; //New binding?
 import { Settings } from '@iota/http-client/typings/http-client/src/settings'; //Added for Provider typing
 import * as Bluebird from 'bluebird'
+import { stringify } from 'querystring';
 
 //Setup Provider
 let provider : string = null;
@@ -98,7 +99,8 @@ export class MamWriter {
 
     public create(message : string) : {payload : string, root : string, address : string} {
         //Interact with MAM Lib
-        const mam = Mam.createMessage(this.seed, message, this.channel.side_key, this.channel); //TODO: This could return an interface format
+        let TrytesMsg = converter.asciiToTrytes(message);
+        const mam = Mam.createMessage(this.seed, TrytesMsg, this.channel.side_key, this.channel); //TODO: This could return an interface format
 
         //If the tree is exhausted
         if(this.channel.index == this.channel.count - 1) { //Two equals should be enough in typescript
@@ -133,7 +135,7 @@ export class MamWriter {
 
     //Todo: Remove the need to pass around root as the class should handle it?
     public async attach(trytes : string, root : string, depth : number = 6, mwm : number = 12) : Promise<Transaction[]> {
-        return new Promise<Transaction[]> ( async (resolve, reject) => {
+        return new Promise<Transaction[]> ( (resolve, reject) => {
             let transfers : Transfer[];
             transfers = [ {
                 address : root,
@@ -141,15 +143,12 @@ export class MamWriter {
                 message : trytes
             }];
 
-            type sendTrytesFunction = (trytes: ReadonlyArray<string>, depth: number, minWeightMagnitude: number, reference?: string | undefined, callback?: ((err: Readonly<Error> | null, res?: Readonly<ReadonlyArray<Transaction>> | undefined) => void) | undefined) => Bluebird<ReadonlyArray<Transaction>>; 
-            //const sendTryte :  = sendTrytes;
             const { sendTrytes } : any = composeAPI(this.provider);
-            const SendTrytesFunction : sendTrytesFunction = sendTrytes;
             const prepareTransfers = createPrepareTransfers();
 
             prepareTransfers('9'.repeat(81), transfers, {})
             .then( (transactionTrytes) => {
-                SendTrytesFunction(transactionTrytes, depth, mwm)
+                sendTrytes(transactionTrytes, depth, mwm)
                 .then(transactions => {
                     resolve(<Array<Transaction>>transactions);
                 })
@@ -194,26 +193,30 @@ export class MamReader {
     } 
 
     public async fetchSingle (root : string = this.next_root, mode : MAM_MODE = this.mode, sidekey : string = this.sideKey, rounds : number = 81) : Promise<{ payload : string, nextRoot : string}> { //TODO: test, Returning a Promise correct?
-        let address : string = root;
-        if( mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
-            address = hash(root, rounds);
-        }
-        const { findTransactions } : any = composeAPI( this.provider);
-        const hashes : Bluebird<ReadonlyArray<string>> = await pify(findTransactions) ({ //I don't understand pify stuff, so not typing this
-            addresses: [address]
+        return new Promise<{ payload : string, nextRoot : string}> (async (resolve, reject) => {
+            let address : string = root;
+            if( mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
+                address = hash(root, rounds);
+            }
+            const { findTransactions } : any = composeAPI( this.provider);
+            findTransactions({addresses : [address]})
+            .then(async (transactionHashes) => {
+                const messagesGen = await txHashesToMessages(transactionHashes, this.provider); //Todo: Typing
+                for( let message of messagesGen) {
+                    try {
+                        //Unmask the message
+                        const { payload, next_root } = Decode(message, sidekey, root);
+                        //Return payload
+                        resolve( { payload : converter.trytesToAscii(payload), nextRoot : next_root } );
+                    } catch(e) {
+                        reject(`failed to parse: ${e}`);
+                    }
+                }
+            })
+            .catch((error) => {
+                reject(`findTransactions failed with ${error}`);
+            });             
         });
-
-         const messagesGen = await txHashesToMessages(hashes, this.provider); //Todo: Typing
-         for( let message of messagesGen) {
-             try {
-                 //Unmask the message
-                 const { payload, next_root } = Decode(message, sidekey, root);
-                 //Return payload
-                 return { payload, nextRoot: next_root }
-             } catch(e) {
-                 throw `failed to parse: ${e}`; //Changed console.error to stay consistent
-             }
-         }
     }
 
     //Todo: Type of callback
