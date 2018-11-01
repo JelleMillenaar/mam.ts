@@ -4,13 +4,11 @@ import * as crypto from 'crypto';
 import * as Encryption from './encryption';
 import * as pify from 'pify';
 import * as converter from '@iota/converter';
-import { composeAPI, createPrepareTransfers } from '@iota/core';
+import { composeAPI, createPrepareTransfers, API } from '@iota/core';
 import { Transaction, Transfer } from '@iota/core/typings/types';
 import { Mam } from './node'; //New binding?
 import { Settings } from '@iota/http-client/typings/http-client/src/settings'; //Added for Provider typing
 import * as Bluebird from 'bluebird'
-import { stringify } from 'querystring';
-import { resolve } from 'path';
 
 //Setup Provider
 let provider : string = null;
@@ -39,9 +37,9 @@ let provider : string = null;
 
 //Introduced a Enum for the mode with string values to allow backwards compatibility. Enum removes the need for string compare checks.
 export enum MAM_MODE {
-    PUBLIC = 'public',
-    PRIVATE = 'private',
-    RESTRICTED = 'restricted'
+    PUBLIC,
+    PRIVATE,
+    RESTRICTED
 }
 
 export interface channel {
@@ -82,10 +80,7 @@ export class MamWriter {
 
     public async createAndAttach(message : string) {
         let Result : {payload : string, root : string, address : string} = this.create(message);
-        console.log("Create finished");
         let Result2 = await this.attach(Result.payload, Result.root);
-        console.log("Derp");
-        console.log(Result2);
         return Result2;
     }
 
@@ -137,8 +132,8 @@ export class MamWriter {
     }
 
     //Todo: Remove the need to pass around root as the class should handle it?
-    public async attach(trytes : string, root : string, depth : number = 6, mwm : number = 14) : Promise<{}> {
-        return new Promise( async (resolve, reject) => {
+    public async attach(trytes : string, root : string, depth : number = 6, mwm : number = 12) : Promise<Transaction[]> {
+        return new Promise<Transaction[]> ( async (resolve, reject) => {
             let transfers : Transfer[];
             transfers = [ {
                 address : root,
@@ -146,14 +141,17 @@ export class MamWriter {
                 message : trytes
             }];
 
-            const { sendTrytes } : any = composeAPI(this.provider); //Any type because function declarating is specific and requires imports (HELP)
+            type sendTrytesFunction = (trytes: ReadonlyArray<string>, depth: number, minWeightMagnitude: number, reference?: string | undefined, callback?: ((err: Readonly<Error> | null, res?: Readonly<ReadonlyArray<Transaction>> | undefined) => void) | undefined) => Bluebird<ReadonlyArray<Transaction>>; 
+            //const sendTryte :  = sendTrytes;
+            const { sendTrytes } : any = composeAPI(this.provider);
+            const SendTrytesFunction : sendTrytesFunction = sendTrytes;
             const prepareTransfers = createPrepareTransfers();
 
             prepareTransfers('9'.repeat(81), transfers, {})
             .then( (transactionTrytes) => {
-                sendTrytes(transactionTrytes, depth, mwm)
+                SendTrytesFunction(transactionTrytes, depth, mwm)
                 .then(transactions => {
-                    resolve(transactions);
+                    resolve(<Array<Transaction>>transactions);
                 })
                 .catch(error => {
                     reject(`sendTrytes failed: ${error}`);
@@ -165,8 +163,8 @@ export class MamWriter {
         });
     }
 
-    //Current root
-    public getRoot() {
+    //Next root
+    public getNextRoot() {
         return Mam.getMamRoot(this.seed, this.channel);
     }  
 }
@@ -209,7 +207,7 @@ export class MamReader {
          for( let message of messagesGen) {
              try {
                  //Unmask the message
-                 const { payload, next_root } = decode(message, sidekey, root);
+                 const { payload, next_root } = Decode(message, sidekey, root);
                  //Return payload
                  return { payload, nextRoot: next_root }
              } catch(e) {
@@ -249,7 +247,7 @@ export class MamReader {
             for (let message of messagesGen) {
                 try {
                     //Unmask the message
-                    const {payload, next_root } = decode(message, sidekey, nextRoot);
+                    const {payload, next_root } = Decode(message, sidekey, nextRoot);
                     //Push payload into the messages array
                     if(callback == undefined) {
                         messages.push(payload);
@@ -300,10 +298,10 @@ async function txHashesToMessages(hashes : Bluebird<ReadonlyArray<string>>, prov
         .filter(item => item !== undefined)
 }
 
-export function decode(payload : string, side_key : string, root : string) {
+export function Decode(payload : string, side_key : string, root : string) {
     return Mam.decodeMessage(payload, side_key, root);
 }
-
+//Export?
 export function hash (data, rounds = 81) {
     return converter.trytes(
         Encryption.hash( 
@@ -313,6 +311,7 @@ export function hash (data, rounds = 81) {
     );
 }
 
+//Export?
 export function keyGen(length : number) {
     const charset : string = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ9';
     let key : string = '';
