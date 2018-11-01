@@ -218,44 +218,42 @@ var MamReader = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             return __generator(this, function (_a) {
-                return [2 /*return*/, new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
-                        var address, findTransactions;
-                        var _this = this;
-                        return __generator(this, function (_a) {
-                            address = root;
-                            if (mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
-                                address = hash(root, rounds);
-                            }
-                            findTransactions = core_1.composeAPI(this.provider).findTransactions;
-                            findTransactions({ addresses: [address] })
-                                .then(function (transactionHashes) { return __awaiter(_this, void 0, void 0, function () {
-                                var messagesGen, _i, messagesGen_1, message, _a, payload, next_root;
-                                return __generator(this, function (_b) {
-                                    switch (_b.label) {
-                                        case 0: return [4 /*yield*/, txHashesToMessages(transactionHashes, this.provider)];
-                                        case 1:
-                                            messagesGen = _b.sent();
-                                            for (_i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) {
-                                                message = messagesGen_1[_i];
-                                                try {
-                                                    _a = Decode(message, sidekey, root), payload = _a.payload, next_root = _a.next_root;
-                                                    //Return payload
-                                                    resolve({ message: converter.trytesToAscii(payload), nextRoot: next_root });
-                                                }
-                                                catch (e) {
-                                                    reject("failed to parse: " + e);
-                                                }
-                                            }
-                                            return [2 /*return*/];
+                return [2 /*return*/, new Promise(function (resolve, reject) {
+                        //Generate the correct depending on the mode of the reader
+                        var address = root;
+                        if (mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
+                            address = hash(root, rounds);
+                        }
+                        //Get the function from the IOTA API
+                        var findTransactions = core_1.composeAPI(_this.provider).findTransactions;
+                        //Get the next set of transactions send to the next address from the mam stream
+                        findTransactions({ addresses: [address] })
+                            .then(function (transactionHashes) {
+                            //Translate the transactions into messages
+                            txHashesToMessages(transactionHashes, _this.provider) //Todo: Typing
+                                .then(function (messagesGen) {
+                                //Decode the messages and translate from trytes to Ascii
+                                for (var _i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) { //Todo: For-loop needed?
+                                    var message = messagesGen_1[_i];
+                                    try {
+                                        //Unmask the message
+                                        var _a = Decode(message, sidekey, root), payload = _a.payload, next_root = _a.next_root;
+                                        //Return payload
+                                        resolve({ message: converter.trytesToAscii(payload), nextRoot: next_root });
                                     }
-                                });
-                            }); })
+                                    catch (error) {
+                                        reject("failed to parse: " + error);
+                                    }
+                                }
+                            })
                                 .catch(function (error) {
-                                reject("findTransactions failed with " + error);
+                                reject("txHashesToMessages failed with " + error);
                             });
-                            return [2 /*return*/];
+                        })
+                            .catch(function (error) {
+                            reject("findTransactions failed with " + error);
                         });
-                    }); })];
+                    })];
             });
         });
     };

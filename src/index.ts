@@ -193,25 +193,38 @@ export class MamReader {
     } 
 
     public async fetchSingle (root : string = this.next_root, mode : MAM_MODE = this.mode, sidekey : string = this.sideKey, rounds : number = 81) : Promise<{ message : string, nextRoot : string}> { //TODO: test, Returning a Promise correct?
-        return new Promise<{ message : string, nextRoot : string}> (async (resolve, reject) => {
+        return new Promise<{ message : string, nextRoot : string}> ((resolve, reject) => {
+            //Generate the correct depending on the mode of the reader
             let address : string = root;
             if( mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
                 address = hash(root, rounds);
             }
+            //Get the function from the IOTA API
             const { findTransactions } : any = composeAPI( this.provider);
+
+            //Get the next set of transactions send to the next address from the mam stream
             findTransactions({addresses : [address]})
-            .then(async (transactionHashes) => {
-                const messagesGen = await txHashesToMessages(transactionHashes, this.provider); //Todo: Typing
-                for( let message of messagesGen) {
-                    try {
-                        //Unmask the message
-                        const { payload, next_root } = Decode(message, sidekey, root);
-                        //Return payload
-                        resolve( { message : converter.trytesToAscii(payload), nextRoot : next_root } );
-                    } catch(e) {
-                        reject(`failed to parse: ${e}`);
+            .then((transactionHashes) => {
+
+                //Translate the transactions into messages
+                txHashesToMessages(transactionHashes, this.provider) //Todo: Typing
+                .then((messagesGen) => {
+
+                    //Decode the messages and translate from trytes to Ascii
+                    for( let message of messagesGen) { //Todo: For-loop needed?
+                        try {
+                            //Unmask the message
+                            const { payload, next_root } = Decode(message, sidekey, root);
+                            //Return payload
+                            resolve( { message : converter.trytesToAscii(payload), nextRoot : next_root } );
+                        } catch(error) {
+                            reject(`failed to parse: ${error}`);
+                        }
                     }
-                }
+                })
+                .catch((error) => {
+                    reject(`txHashesToMessages failed with ${error}`)
+                }); 
             })
             .catch((error) => {
                 reject(`findTransactions failed with ${error}`);
