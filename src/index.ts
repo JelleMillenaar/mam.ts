@@ -142,7 +142,10 @@ export class MamWriter {
                 value : 0,
                 message : trytes
             }];
-
+            for(let item in transfers){
+                console.log( item + transfers[item].address)
+                console.log("NOOOOOOOO")
+            }
             const { sendTrytes } : any = composeAPI(this.provider);
             const prepareTransfers = createPrepareTransfers();
 

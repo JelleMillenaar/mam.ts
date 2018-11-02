@@ -38,45 +38,91 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ava_1 = require("ava");
 var index_1 = require("../src/index");
-var NULL_HASH = '9'.repeat(81);
-var tag = 'TAG' + '9'.repeat(24);
-//Variables
-var Network = 'https://testnet140.tangle.works';
-var Security = 1;
-var Mode = index_1.MAM_MODE.PUBLIC;
-var SideKey = undefined;
-var Seed = undefined;
-ava_1.default.serial('Send & Receive Public MAM Transaction', function (t) { return __awaiter(_this, void 0, void 0, function () {
-    var Channel, Root, create, Attach, i, Receiver, Result;
-    return __generator(this, function (_a) {
-        switch (_a.label) {
-            case 0:
-                Channel = new index_1.MamWriter(Network, Seed, Security);
-                Channel.changeMode(Mode, SideKey);
-                Root = Channel.getNextRoot();
-                create = Channel.create("Hello World".repeat(5));
-                console.log("Payload: ");
-                console.log(create.payload);
-                return [4 /*yield*/, Channel.attach(create.payload, Root)];
-            case 1:
-                Attach = _a.sent();
-                console.log("Attached: ");
-                for (i = 0; i < Attach.length; i++) {
-                    console.log(Attach[i].signatureMessageFragment);
-                }
-                Receiver = new index_1.MamReader(Network, Root, Mode, SideKey);
-                return [4 /*yield*/, Receiver.fetchSingle()];
-            case 2:
-                Result = _a.sent();
-                console.log("Result: ");
-                console.log(Result);
-                return [2 /*return*/];
-        }
+var trytes = null;
+var root = null;
+var adress = null;
+var side_key = "0";
+var payload = "";
+var _loop_1 = function (item) {
+    // Set the security by comparing the current Mam mode (public = 0, private = 1, restricted = 2).
+    var security = index_1.MAM_MODE[index_1.MAM_MODE[item]] + 1;
+    // Creating default mam writer channel.
+    var writerChannel = null;
+    // Creating default  mam reader channel.
+    var readerChannel = null;
+    var Msg = "it's a me, Test IoT";
+    //Set the mam channels.
+    writerChannel = new index_1.MamWriter('https://testnet140.tangle.works', undefined, security);
+    writerChannel.changeMode(index_1.MAM_MODE[item.toString()], side_key);
+    readerChannel = new index_1.MamReader('https://testnet140.tangle.works', writerChannel.getNextRoot());
+    //Mam create
+    ava_1.default.serial('MAM Create, mode ' + index_1.MAM_MODE[item].toLowerCase(), function (t) {
+        //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
+        t.plan(2);
+        t.log("We are now Creating a " + index_1.MAM_MODE[item].toLowerCase() + " MAM!");
+        var create = writerChannel.create(Msg.repeat(1));
+        //Assertion 1: Compare if the object we receive is not equal to the previous set variables.
+        t.not(create, { payload: trytes, root: root, address: adress }, "We received a new MaM");
+        trytes = create.payload;
+        root = create.root;
+        adress = create.address;
+        t.log(root);
+        //Assertion 2: Passing assertion.
+        t.pass("create complete!");
     });
-}); });
-ava_1.default.serial('Receive Public MAM Transaction', function (t) { return __awaiter(_this, void 0, void 0, function () {
-    return __generator(this, function (_a) {
-        return [2 /*return*/];
-    });
-}); });
+    ava_1.default.serial('MAM Attach, mode ' + index_1.MAM_MODE[item].toLowerCase(), function (t) { return __awaiter(_this, void 0, void 0, function () {
+        var attach_1, attach, test, test2;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    t.plan(2);
+                    t.log("We are now Attaching!");
+                    if (!(security == 1)) return [3 /*break*/, 2];
+                    return [4 /*yield*/, writerChannel.attach(trytes, root, undefined, 12)];
+                case 1:
+                    attach_1 = _a.sent();
+                    _a.label = 2;
+                case 2: return [4 /*yield*/, writerChannel.attach(trytes, adress, undefined, 12)];
+                case 3:
+                    attach = _a.sent();
+                    t.log(Object.keys(attach).values());
+                    attach.forEach(function (element) {
+                        payload += element.signatureMessageFragment;
+                    });
+                    t.log("root: " + adress);
+                    t.log("side key: " + side_key);
+                    test = index_1.Decode(payload, side_key, adress);
+                    test2 = index_1.Decode(trytes, side_key, adress);
+                    t.deepEqual(test.payload, test2.payload);
+                    t.pass(index_1.MAM_MODE[item].toLowerCase() + "attach complete!");
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+    ava_1.default.serial('MAM Fetch ' + index_1.MAM_MODE[item].toLowerCase(), function (t) { return __awaiter(_this, void 0, void 0, function () {
+        var Channel, fetch;
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    Channel = new index_1.MamReader('https://testnet140.tangle.works', root, index_1.MAM_MODE[item.toString()], side_key);
+                    t.log("We are now fetching " + index_1.MAM_MODE[item].toLowerCase());
+                    return [4 /*yield*/, Channel.fetchSingle()];
+                case 1:
+                    fetch = _a.sent();
+                    t.log(index_1.MAM_MODE[item].toLowerCase() + " fetch complete!");
+                    t.log("payload: " + fetch.payload + " next root:" + fetch.nextRoot);
+                    t.deepEqual(Msg, fetch.payload);
+                    return [2 /*return*/];
+            }
+        });
+    }); });
+};
+/**
+ * We're looping through the Masked Authenticated messaging mode's: Public, Private & Restricted.
+ * For each of these mode's we will test the: Create, Attach & Fetch.
+ */
+// Filter out the none numbers out of the for loop.s
+for (var item in Object.keys(index_1.MAM_MODE).filter(function (key) { return isNaN(Number(key)); })) {
+    _loop_1(item);
+}
 //# sourceMappingURL=channel.test.js.map

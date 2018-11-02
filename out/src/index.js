@@ -166,6 +166,10 @@ var MamWriter = /** @class */ (function () {
                                 value: 0,
                                 message: trytes
                             }];
+                        for (var item in transfers) {
+                            console.log(item + transfers[item].address);
+                            console.log("NOOOOOOOO");
+                        }
                         var sendTrytes = core_1.composeAPI(_this.provider).sendTrytes;
                         var prepareTransfers = core_1.createPrepareTransfers();
                         prepareTransfers('9'.repeat(81), transfers, {})
