@@ -17,20 +17,16 @@ test.serial('Send & Receive Public MAM Transaction', async t => {
     let Channel : MamWriter = new MamWriter(Network, Seed, Security);
     Channel.changeMode(Mode, SideKey);
     let Root = Channel.getNextRoot();
-    let create = Channel.create("Hello World".repeat(5));
+    let create = Channel.create("HelloWorld".repeat(10));
     console.log("Payload: ");
-    console.log(create.payload);
+    //console.log(create.payload);
     let Attach = await Channel.attach(create.payload, Root);
     console.log("Attached: ");
-    for(let i=0; i < Attach.length; i++) {
-        console.log(Attach[i].signatureMessageFragment);
-    }
+    //for(let i=0; i < Attach.length; i++) {
+    //    console.log(Attach[i].signatureMessageFragment);
+    //}
     let Receiver : MamReader = new MamReader(Network, Root, Mode, SideKey);
     let Result = await Receiver.fetchSingle();
     console.log("Result: ");
     console.log(Result);
-});
-
-test.serial('Receive Public MAM Transaction', async t => {
-
 });

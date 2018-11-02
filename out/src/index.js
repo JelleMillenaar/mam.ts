@@ -39,7 +39,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 require('babel-polyfill');
 var crypto = require("crypto");
 var Encryption = require("./encryption");
-var pify = require("pify");
 var converter = require("@iota/converter");
 var core_1 = require("@iota/core");
 var node_1 = require("./node"); //New binding?
@@ -76,7 +75,7 @@ var MamWriter = /** @class */ (function () {
     //Replaces init
     function MamWriter(provider, seed, security) {
         if (seed === void 0) { seed = keyGen(81); }
-        if (security === void 0) { security = 2; }
+        if (security === void 0) { security = 1; }
         //Set IOTA provider
         this.provider = { provider: provider };
         //Setup Personal Channel
@@ -113,6 +112,7 @@ var MamWriter = /** @class */ (function () {
         if (mode == MAM_MODE.RESTRICTED && sideKey == undefined) {
             return console.log('You must specify a side key for a restricted channel');
         }
+        //Only set sidekey if it isn't undefined (It is allowed to be null, but not undefined)
         if (sideKey) {
             this.channel.side_key = sideKey;
         }
@@ -136,7 +136,6 @@ var MamWriter = /** @class */ (function () {
         }
         //Advance Channel
         this.channel.next_root = mam.next_root;
-        //Removed the need to set the channel: state.channel = channel
         //Generate attachment address
         var address;
         if (this.channel.mode !== MAM_MODE.PUBLIC) {
@@ -195,6 +194,7 @@ exports.MamWriter = MamWriter;
 var MamReader = /** @class */ (function () {
     function MamReader(provider, root, mode, sideKey) {
         if (mode === void 0) { mode = MAM_MODE.PUBLIC; }
+        this.sideKey = null;
         //Set the settings
         this.provider = { provider: provider };
         this.changeMode(root, mode, sideKey);
@@ -208,12 +208,12 @@ var MamReader = /** @class */ (function () {
         }
         this.mode = mode;
         //Requires root to be set as the user should make a concise decision to keep the root the same, while they switch the mode (unlikely to be the correct call)
-        this.next_root = root;
+        this.nextRoot = root;
     };
-    MamReader.prototype.fetchSingle = function (root, mode, sidekey, rounds) {
-        if (root === void 0) { root = this.next_root; }
-        if (mode === void 0) { mode = this.mode; }
-        if (sidekey === void 0) { sidekey = this.sideKey; }
+    MamReader.prototype.setRoot = function (root) {
+        this.nextRoot = root;
+    };
+    MamReader.prototype.fetchSingle = function (rounds) {
         if (rounds === void 0) { rounds = 81; }
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
@@ -222,25 +222,26 @@ var MamReader = /** @class */ (function () {
                         var address, findTransactions;
                         var _this = this;
                         return __generator(this, function (_a) {
-                            address = root;
-                            if (mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
-                                address = hash(root, rounds);
+                            address = this.nextRoot;
+                            if (this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
+                                address = hash(this.nextRoot, rounds);
                             }
                             findTransactions = core_1.composeAPI(this.provider).findTransactions;
                             findTransactions({ addresses: [address] })
                                 .then(function (transactionHashes) { return __awaiter(_this, void 0, void 0, function () {
-                                var messagesGen, _i, messagesGen_1, message, _a, payload, next_root;
+                                var messagesGen, _i, messagesGen_1, maskedMessage, _a, message, nextRoot;
                                 return __generator(this, function (_b) {
                                     switch (_b.label) {
-                                        case 0: return [4 /*yield*/, txHashesToMessages(transactionHashes, this.provider)];
+                                        case 0: return [4 /*yield*/, this.txHashesToMessages(transactionHashes)];
                                         case 1:
                                             messagesGen = _b.sent();
                                             for (_i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) {
-                                                message = messagesGen_1[_i];
+                                                maskedMessage = messagesGen_1[_i];
                                                 try {
-                                                    _a = Decode(message, sidekey, root), payload = _a.payload, next_root = _a.next_root;
+                                                    _a = Decode(maskedMessage, this.sideKey, this.nextRoot), message = _a.message, nextRoot = _a.nextRoot;
+                                                    this.nextRoot = nextRoot;
                                                     //Return payload
-                                                    resolve({ payload: converter.trytesToAscii(payload), nextRoot: next_root });
+                                                    resolve(converter.trytesToAscii(message));
                                                 }
                                                 catch (e) {
                                                     reject("failed to parse: " + e);
@@ -259,111 +260,127 @@ var MamReader = /** @class */ (function () {
             });
         });
     };
-    //Todo: Type of callback
-    MamReader.prototype.fetch = function (callback, root, mode, sidekey, rounds) {
-        if (root === void 0) { root = this.next_root; }
-        if (mode === void 0) { mode = this.mode; }
-        if (sidekey === void 0) { sidekey = this.sideKey; }
+    MamReader.prototype.fetch = function (rounds) {
         if (rounds === void 0) { rounds = 81; }
         return __awaiter(this, void 0, void 0, function () {
-            var messages, consumedAll, nextRoot, transactionCount, messageCount, address, findTransactions, hashes, messagesGen, _i, messagesGen_2, message, _a, payload, next_root, resp;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        messages = [];
-                        consumedAll = false;
-                        nextRoot = root;
-                        transactionCount = 0;
-                        messageCount = 0;
-                        _b.label = 1;
-                    case 1:
-                        if (!!consumedAll) return [3 /*break*/, 4];
-                        address = nextRoot;
-                        if (mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
-                            address = hash(nextRoot, rounds);
-                        }
-                        findTransactions = core_1.composeAPI(this.provider).findTransactions;
-                        return [4 /*yield*/, pify(findTransactions)({
-                                addresses: [address]
-                            })];
-                    case 2:
-                        hashes = _b.sent();
-                        if (hashes.length == 0) {
-                            consumedAll = true;
-                            return [3 /*break*/, 4];
-                        }
-                        transactionCount += hashes.length;
-                        messageCount++;
-                        return [4 /*yield*/, txHashesToMessages(hashes, this.provider)];
-                    case 3:
-                        messagesGen = _b.sent();
-                        for (_i = 0, messagesGen_2 = messagesGen; _i < messagesGen_2.length; _i++) {
-                            message = messagesGen_2[_i];
-                            try {
-                                _a = Decode(message, sidekey, nextRoot), payload = _a.payload, next_root = _a.next_root;
-                                //Push payload into the messages array
-                                if (callback == undefined) {
-                                    messages.push(payload);
-                                }
-                                else {
-                                    callback(payload);
-                                }
-                                nextRoot = next_root;
+            var _this = this;
+            return __generator(this, function (_a) {
+                return [2 /*return*/, new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
+                        var messages, consumedAll, address, findTransactions;
+                        var _this = this;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0:
+                                    messages = [];
+                                    consumedAll = false;
+                                    _a.label = 1;
+                                case 1:
+                                    if (!!consumedAll) return [3 /*break*/, 3];
+                                    address = this.nextRoot;
+                                    if (this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
+                                        address = hash(this.nextRoot, rounds);
+                                    }
+                                    findTransactions = core_1.composeAPI(this.provider).findTransactions;
+                                    return [4 /*yield*/, findTransactions({ addresses: [address] })
+                                            .then(function (transactionHashes) { return __awaiter(_this, void 0, void 0, function () {
+                                            var _this = this;
+                                            return __generator(this, function (_a) {
+                                                console.log("then");
+                                                //If no hashes are found, we are at the end of the stream
+                                                if (transactionHashes.length == 0) {
+                                                    consumedAll = true;
+                                                }
+                                                else { //Continue gathering the messages
+                                                    this.txHashesToMessages(transactionHashes)
+                                                        .then(function (messagesGen) {
+                                                        for (var _i = 0, messagesGen_2 = messagesGen; _i < messagesGen_2.length; _i++) {
+                                                            var maskedMessage = messagesGen_2[_i];
+                                                            try {
+                                                                //Unmask the message
+                                                                var _a = Decode(maskedMessage, _this.sideKey, _this.nextRoot), message = _a.message, nextRoot = _a.nextRoot;
+                                                                //Store the result
+                                                                messages.push(converter.trytesToAscii(message));
+                                                                _this.nextRoot = nextRoot;
+                                                            }
+                                                            catch (e) {
+                                                                reject("failed to parse: " + e);
+                                                            }
+                                                        }
+                                                    })
+                                                        .catch(function (error) {
+                                                        reject("txHashesToMessages failed with " + error);
+                                                    });
+                                                }
+                                                return [2 /*return*/];
+                                            });
+                                        }); })
+                                            .catch(function (error) {
+                                            reject("findTransactions failed with " + error);
+                                        })];
+                                case 2:
+                                    _a.sent();
+                                    console.log("Done");
+                                    return [3 /*break*/, 1];
+                                case 3:
+                                    resolve(messages);
+                                    return [2 /*return*/];
                             }
-                            catch (e) {
-                                throw "failed to parse: " + e;
+                        });
+                    }); })];
+            });
+        });
+    };
+    //Next root
+    MamReader.prototype.getNextRoot = function () {
+        return this.nextRoot;
+    };
+    MamReader.prototype.txHashesToMessages = function (hashes) {
+        return __awaiter(this, void 0, void 0, function () {
+            var _this = this;
+            return __generator(this, function (_a) {
+                return [2 /*return*/, new Promise(function (resolve, reject) {
+                        var bundles = [];
+                        //For some reason this process supports multiple bundles. Keeping it as it might be a workaround for the length bug
+                        var processTx = function (txo) {
+                            if (txo.bundle in bundles) {
+                                bundles[txo.bundle].push({ index: txo.currentIndex, signatureMessageFragment: txo.signatureMessageFragment });
                             }
-                        }
-                        return [3 /*break*/, 1];
-                    case 4:
-                        resp.nextRoot = nextRoot;
-                        if (callback == undefined) {
-                            resp.messages = messages;
-                        }
-                        return [2 /*return*/, resp];
-                }
+                            else {
+                                bundles[txo.bundle] = [{ index: txo.currentIndex, signatureMessageFragment: txo.signatureMessageFragment }];
+                            }
+                            if (bundles[txo.bundle].length == txo.lastIndex + 1) {
+                                //Gets the bundle
+                                var txMessages = bundles[txo.bundle];
+                                delete bundles[txo.bundle];
+                                //Sorts the messages in the bundle according to the index
+                                txMessages = txMessages.sort(function (a, b) { return (b.index < a.index) ? 1 : -1; });
+                                //Reduces the messages to a single messages
+                                var Msg = txMessages.reduce(function (acc, n) { return acc + n.signatureMessageFragment; }, '');
+                                return Msg;
+                            }
+                        };
+                        var getTransactionObjects = core_1.composeAPI(_this.provider).getTransactionObjects;
+                        getTransactionObjects(hashes)
+                            .then(function (objs) {
+                            var proccesedTxs = objs.map(function (tx) { return processTx(tx); });
+                            //Remove undefined from the list. Those are transactions that were not the last in the bundle
+                            proccesedTxs = proccesedTxs.filter(function (tx) { return tx !== undefined; });
+                            resolve(proccesedTxs);
+                        })
+                            .catch(function (error) {
+                            reject("getTransactionObjects failed with " + error);
+                        });
+                    })];
             });
         });
     };
     return MamReader;
 }());
 exports.MamReader = MamReader;
-//Export needed?
-function txHashesToMessages(hashes, provider) {
-    return __awaiter(this, void 0, void 0, function () {
-        var bundles, processTx, getTransactionObjects, objs;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    bundles = {};
-                    processTx = function (txo) {
-                        if (txo.bundle in bundles) {
-                            bundles[txo.bundle].push([txo.currentIndex, txo.signatureMessageFragment]);
-                        }
-                        else {
-                            bundles[txo.bundle] = [[txo.currentIndex, txo.signatureMessageFragment]];
-                        }
-                        if (bundles[txo.bundle].length == txo.lastIndex + 1) {
-                            var l = bundles[txo.bundle];
-                            delete bundles[txo.bundle];
-                            return l
-                                .sort(function (a, b) { return b[0] < a[0]; })
-                                .reduce(function (acc, n) { return acc + n[1]; }, '');
-                        }
-                    };
-                    getTransactionObjects = core_1.composeAPI(provider).getTransactionObjects;
-                    return [4 /*yield*/, pify(getTransactionObjects)(hashes)];
-                case 1:
-                    objs = _a.sent();
-                    return [2 /*return*/, objs
-                            .map(function (result) { return processTx(result); })
-                            .filter(function (item) { return item !== undefined; })];
-            }
-        });
-    });
-}
+//Export?
 function Decode(payload, side_key, root) {
-    return node_1.Mam.decodeMessage(payload, side_key, root);
+    var Result = node_1.Mam.decodeMessage(payload, side_key, root);
+    return { message: Result.payload, nextRoot: Result.next_root };
 }
 exports.Decode = Decode;
 //Export?

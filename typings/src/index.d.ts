@@ -50,21 +50,18 @@ export declare class MamReader {
     private provider;
     private sideKey;
     private mode;
-    private next_root;
+    private nextRoot;
     constructor(provider: string, root: string, mode?: MAM_MODE, sideKey?: string);
     changeMode(root: string, mode: MAM_MODE, sideKey?: string): void;
-    fetchSingle(root?: string, mode?: MAM_MODE, sidekey?: string, rounds?: number): Promise<{
-        payload: string;
-        nextRoot: string;
-    }>;
-    fetch(callback?: any, root?: string, mode?: MAM_MODE, sidekey?: string, rounds?: number): Promise<{
-        nextRoot: string;
-        messages: any[];
-    }>;
+    setRoot(root: string): void;
+    fetchSingle(rounds?: number): Promise<string>;
+    fetch(rounds?: number): Promise<string[]>;
+    getNextRoot(): string;
+    private txHashesToMessages;
 }
 export declare function Decode(payload: string, side_key: string, root: string): {
-    payload: any;
-    next_root: any;
+    message: string;
+    nextRoot: string;
 };
 export declare function hash(data: any, rounds?: number): string;
 export declare function keyGen(length: number): string;

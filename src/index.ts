@@ -60,7 +60,7 @@ export class MamWriter {
     private seed : string;
 
     //Replaces init
-    constructor(provider: string, seed : string = keyGen(81), security : number = 2) {
+    constructor(provider: string, seed : string = keyGen(81), security : number = 1) {
         //Set IOTA provider
         this.provider = { provider : provider };
 
@@ -90,6 +90,7 @@ export class MamWriter {
         if(mode == MAM_MODE.RESTRICTED && sideKey == undefined) {
             return console.log('You must specify a side key for a restricted channel');
         }
+        //Only set sidekey if it isn't undefined (It is allowed to be null, but not undefined)
         if(sideKey) {
             this.channel.side_key = sideKey;
         }
@@ -115,7 +116,6 @@ export class MamWriter {
 
         //Advance Channel
         this.channel.next_root = mam.next_root;
-        //Removed the need to set the channel: state.channel = channel
 
         //Generate attachment address
         let address : string;
@@ -170,9 +170,9 @@ export class MamWriter {
 
 export class MamReader {
     private provider : Partial<Settings>;
-    private sideKey : string;
+    private sideKey : string | null = null;
     private mode : MAM_MODE;
-    private next_root : string;
+    private nextRoot : string;
 
     constructor( provider : string, root : string, mode : MAM_MODE = MAM_MODE.PUBLIC, sideKey ?: string) {
         //Set the settings
@@ -189,25 +189,30 @@ export class MamReader {
         }
         this.mode = mode;
         //Requires root to be set as the user should make a concise decision to keep the root the same, while they switch the mode (unlikely to be the correct call)
-        this.next_root = root;
+        this.nextRoot = root;
     } 
 
-    public async fetchSingle (root : string = this.next_root, mode : MAM_MODE = this.mode, sidekey : string = this.sideKey, rounds : number = 81) : Promise<{ payload : string, nextRoot : string}> { //TODO: test, Returning a Promise correct?
-        return new Promise<{ payload : string, nextRoot : string}> (async (resolve, reject) => {
-            let address : string = root;
-            if( mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
-                address = hash(root, rounds);
+    public setRoot(root : string) : void { //TODO: Validation of the root as check if it is a valid root
+        this.nextRoot = root;
+    }
+
+    public async fetchSingle (rounds : number = 81) : Promise<string> { //TODO: test, Returning a Promise correct?
+        return new Promise<string> (async (resolve, reject) => {
+            let address : string = this.nextRoot;
+            if( this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
+                address = hash(this.nextRoot, rounds);
             }
             const { findTransactions } : any = composeAPI( this.provider);
             findTransactions({addresses : [address]})
             .then(async (transactionHashes) => {
-                const messagesGen = await txHashesToMessages(transactionHashes, this.provider); //Todo: Typing
-                for( let message of messagesGen) {
+                const messagesGen = await this.txHashesToMessages(transactionHashes); //Todo: Typing
+                for( let maskedMessage of messagesGen) {
                     try {
                         //Unmask the message
-                        const { payload, next_root } = Decode(message, sidekey, root);
+                        const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
+                        this.nextRoot = nextRoot;
                         //Return payload
-                        resolve( { payload : converter.trytesToAscii(payload), nextRoot : next_root } );
+                        resolve( converter.trytesToAscii(message) );
                     } catch(e) {
                         reject(`failed to parse: ${e}`);
                     }
@@ -219,91 +224,105 @@ export class MamReader {
         });
     }
 
-    //Todo: Type of callback
-    public async fetch(callback?, root : string = this.next_root, mode : MAM_MODE = this.mode, sidekey : string = this.sideKey, rounds : number = 81) {
-        const messages = [];
-        let consumedAll : boolean = false;
-        let nextRoot : string = root;
-        let transactionCount : number = 0;
-        let messageCount : number = 0;
+    public async fetch(rounds : number = 81) : Promise<string[]> {
+        return new Promise<string[]> (async (resolve, reject) => {
+            //Set variables
+            const messages : string[] = [];
+            let consumedAll : boolean = false;
 
-        while(!consumedAll) {
-            //Apply channel mode
-            let address : string = nextRoot;
-            if(mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
-                address = hash(nextRoot, rounds);
-            }
+            while(!consumedAll) {
+                //Apply channel mode
+                let address : string = this.nextRoot;
+                if(this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
+                    address = hash(this.nextRoot, rounds);
+                }
 
-            const { findTransactions } : any = composeAPI( this.provider );
-            const hashes = await pify(findTransactions)({
-                addresses: [address]
-            });
-
-            if(hashes.length == 0) {
-                consumedAll = true;
-                break;
-            }
-
-            transactionCount += hashes.length;
-            messageCount++;
-            const messagesGen = await txHashesToMessages(hashes, this.provider);
-            for (let message of messagesGen) {
-                try {
-                    //Unmask the message
-                    const {payload, next_root } = Decode(message, sidekey, nextRoot);
-                    //Push payload into the messages array
-                    if(callback == undefined) {
-                        messages.push(payload);
-                    } else {
-                        callback(payload);
+                const { findTransactions } : any = composeAPI( this.provider );
+                await findTransactions({addresses : [address]})
+                .then(async (transactionHashes) => {
+                    console.log("then");
+                    //If no hashes are found, we are at the end of the stream
+                    if(transactionHashes.length == 0) {
+                        consumedAll = true;
+                    } else { //Continue gathering the messages
+                        this.txHashesToMessages(transactionHashes)
+                        .then((messagesGen) => {
+                            for( let maskedMessage of messagesGen) {
+                                try {
+                                    //Unmask the message
+                                    const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
+                                    //Store the result
+                                    messages.push( converter.trytesToAscii(message) );
+                                    this.nextRoot = nextRoot;
+                                } catch(e) {
+                                    reject(`failed to parse: ${e}`);
+                                }
+                            }
+                        })
+                        .catch((error) => {
+                            reject(`txHashesToMessages failed with ${error}`);
+                        });
                     }
-                    nextRoot = next_root;
-                } catch(e) {
-                    throw `failed to parse: ${e}`;
+                })
+                .catch((error) => {
+                    reject(`findTransactions failed with ${error}`);
+                });
+                console.log("Done");
+            }
+            resolve(messages);
+        });
+    }
+
+    //Next root
+    public getNextRoot() {
+        return this.nextRoot;
+    } 
+
+    private async txHashesToMessages(hashes : Bluebird<ReadonlyArray<string>>) : Promise<string[]> {
+        return new Promise<string[]> ((resolve, reject) => {
+            let bundles : {index : number, signatureMessageFragment : string}[] = [];
+    
+            //For some reason this process supports multiple bundles. Keeping it as it might be a workaround for the length bug
+            const processTx = function(txo : Transaction) : string {
+                if(txo.bundle in bundles) {
+                    bundles[txo.bundle].push({index : txo.currentIndex, signatureMessageFragment : txo.signatureMessageFragment});
+                } else {
+                    bundles[txo.bundle] = [{index : txo.currentIndex, signatureMessageFragment : txo.signatureMessageFragment}];
+                }
+        
+                if(bundles[txo.bundle].length == txo.lastIndex + 1) {
+                    //Gets the bundle
+                    let txMessages : {index : number, signatureMessageFragment : string}[] = bundles[txo.bundle];
+                    delete bundles[txo.bundle];
+                    //Sorts the messages in the bundle according to the index
+                    txMessages = txMessages.sort((a,b) => (b.index < a.index) ? 1 : -1);
+                    //Reduces the messages to a single messages
+                    let Msg : string = txMessages.reduce((acc, n) => acc + n.signatureMessageFragment, '');
+                    return Msg;
                 }
             }
-        }
-        let resp : {nextRoot : string, messages : any[]};
-        resp.nextRoot = nextRoot;
-        if(callback == undefined) {
-            resp.messages = messages;
-        }
-        return resp;
+
+            const { getTransactionObjects } : any = composeAPI( this.provider);
+            getTransactionObjects(hashes)
+            .then((objs) => {
+                let proccesedTxs : string[] = objs.map(tx => processTx(tx));
+                //Remove undefined from the list. Those are transactions that were not the last in the bundle
+                proccesedTxs = proccesedTxs.filter(tx => tx !== undefined);
+                resolve(proccesedTxs);
+            })
+            .catch((error) => {
+                reject(`getTransactionObjects failed with ${error}`);
+            });
+        });
     }
 }
 
-//Export needed?
-async function txHashesToMessages(hashes : Bluebird<ReadonlyArray<string>>, provider : Partial<Settings>) {
-    let bundles : any = {};
-
-    //TODO: Typing of bundles?
-    const processTx = function(txo : Transaction) {
-        if(txo.bundle in bundles) {
-            bundles[txo.bundle].push([txo.currentIndex, txo.signatureMessageFragment]);
-        } else {
-            bundles[txo.bundle] = [[txo.currentIndex, txo.signatureMessageFragment]];
-        }
-
-        if(bundles[txo.bundle].length == txo.lastIndex + 1) {
-            let l : any = bundles[txo.bundle];
-            delete bundles[txo.bundle];
-            return l
-                .sort((a,b) => b[0] < a[0])
-                .reduce((acc, n) => acc + n[1], '')
-        }
-    }
-    const { getTransactionObjects } : any = composeAPI( provider);
-    const objs : Bluebird<ReadonlyArray<Transaction>> = await pify(getTransactionObjects) (
-        hashes
-    );
-    return objs
-        .map(result => processTx(result))
-        .filter(item => item !== undefined)
+//Export?
+export function Decode(payload : string, side_key : string, root : string) : { message : string, nextRoot : string } {
+    let Result : {payload : any, next_root : any} =  Mam.decodeMessage(payload, side_key, root);
+    return {message: Result.payload, nextRoot : Result.next_root};
 }
 
-export function Decode(payload : string, side_key : string, root : string) {
-    return Mam.decodeMessage(payload, side_key, root);
-}
 //Export?
 export function hash (data, rounds = 81) {
     return converter.trytes(

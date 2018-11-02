@@ -47,23 +47,19 @@ var Mode = index_1.MAM_MODE.PUBLIC;
 var SideKey = undefined;
 var Seed = undefined;
 ava_1.default.serial('Send & Receive Public MAM Transaction', function (t) { return __awaiter(_this, void 0, void 0, function () {
-    var Channel, Root, create, Attach, i, Receiver, Result;
+    var Channel, Root, create, Attach, Receiver, Result;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
                 Channel = new index_1.MamWriter(Network, Seed, Security);
                 Channel.changeMode(Mode, SideKey);
                 Root = Channel.getNextRoot();
-                create = Channel.create("Hello World".repeat(5));
+                create = Channel.create("HelloWorld".repeat(10));
                 console.log("Payload: ");
-                console.log(create.payload);
                 return [4 /*yield*/, Channel.attach(create.payload, Root)];
             case 1:
                 Attach = _a.sent();
                 console.log("Attached: ");
-                for (i = 0; i < Attach.length; i++) {
-                    console.log(Attach[i].signatureMessageFragment);
-                }
                 Receiver = new index_1.MamReader(Network, Root, Mode, SideKey);
                 return [4 /*yield*/, Receiver.fetchSingle()];
             case 2:
@@ -72,11 +68,6 @@ ava_1.default.serial('Send & Receive Public MAM Transaction', function (t) { ret
                 console.log(Result);
                 return [2 /*return*/];
         }
-    });
-}); });
-ava_1.default.serial('Receive Public MAM Transaction', function (t) { return __awaiter(_this, void 0, void 0, function () {
-    return __generator(this, function (_a) {
-        return [2 /*return*/];
     });
 }); });
 //# sourceMappingURL=channel.test.js.map
