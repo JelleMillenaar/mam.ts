@@ -81,7 +81,7 @@ export class MamWriter {
 
     public async createAndAttach(message : string) {
         let Result : {payload : string, root : string, address : string} = this.create(message);
-        let Result2 = await this.attach(Result.payload, Result.root);
+        let Result2 = await this.attach(Result.payload, Result.address);
         return Result2;
     }
 
@@ -98,7 +98,7 @@ export class MamWriter {
         //removed return of the state
     }
 
-    public create(message : string) : {payload : string, root : string, address : string} {
+    public create(message : string, rounds : number = 81) : {payload : string, root : string, address : string} {
         //Interact with MAM Lib
         let TrytesMsg = converter.asciiToTrytes(message);
         const mam = Mam.createMessage(this.seed, TrytesMsg, this.channel.side_key, this.channel); //TODO: This could return an interface format
@@ -120,7 +120,7 @@ export class MamWriter {
         //Generate attachment address
         let address : string;
         if(this.channel.mode !== MAM_MODE.PUBLIC) {
-            address = converter.trytes( Encryption.hash(81, converter.trits(mam.root.slice())) );
+            address = hash(mam.root, rounds);
         } else {
             address = mam.root;
         }
@@ -134,11 +134,11 @@ export class MamWriter {
     }
 
     //Todo: Remove the need to pass around root as the class should handle it?
-    public async attach(trytes : string, root : string, depth : number = 6, mwm : number = 12) : Promise<Transaction[]> {
+    public async attach(trytes : string, address : string, depth : number = 6, mwm : number = 12) : Promise<Transaction[]> {
         return new Promise<Transaction[]> ( (resolve, reject) => {
             let transfers : Transfer[];
             transfers = [ {
-                address : root,
+                address : address,
                 value : 0,
                 message : trytes
             }];
@@ -197,26 +197,31 @@ export class MamReader {
     }
 
     public async fetchSingle (rounds : number = 81) : Promise<string> { //TODO: test, Returning a Promise correct?
-        return new Promise<string> (async (resolve, reject) => {
+        return new Promise<string> ((resolve, reject) => {
             let address : string = this.nextRoot;
             if( this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
                 address = hash(this.nextRoot, rounds);
             }
             const { findTransactions } : any = composeAPI( this.provider);
             findTransactions({addresses : [address]})
-            .then(async (transactionHashes) => {
-                const messagesGen = await this.txHashesToMessages(transactionHashes); //Todo: Typing
-                for( let maskedMessage of messagesGen) {
-                    try {
-                        //Unmask the message
-                        const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
-                        this.nextRoot = nextRoot;
-                        //Return payload
-                        resolve( converter.trytesToAscii(message) );
-                    } catch(e) {
-                        reject(`failed to parse: ${e}`);
+            .then((transactionHashes) => {
+                this.txHashesToMessages(transactionHashes)
+                .then((messagesGen) => {
+                    for( let maskedMessage of messagesGen) {
+                        try {
+                            //Unmask the message
+                            const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
+                            this.nextRoot = nextRoot;
+                            //Return payload
+                            resolve( converter.trytesToAscii(message) );
+                        } catch(e) {
+                            reject(`failed to parse: ${e}`);
+                        }
                     }
-                }
+                })
+                .catch((error) => {
+                    reject(`txHashesToMessages failed with ${error}`);
+                });
             })
             .catch((error) => {
                 reject(`findTransactions failed with ${error}`);

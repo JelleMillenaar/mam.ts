@@ -38,12 +38,10 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ava_1 = require("ava");
 var index_1 = require("../src/index");
-var NULL_HASH = '9'.repeat(81);
-var tag = 'TAG' + '9'.repeat(24);
 //Variables
 var Network = 'https://testnet140.tangle.works';
 var Security = 1;
-var Mode = index_1.MAM_MODE.PUBLIC;
+var Mode = index_1.MAM_MODE.PRIVATE;
 var SideKey = undefined;
 var Seed = undefined;
 ava_1.default.serial('Send & Receive Public MAM Transaction', function (t) { return __awaiter(_this, void 0, void 0, function () {
@@ -54,12 +52,14 @@ ava_1.default.serial('Send & Receive Public MAM Transaction', function (t) { ret
                 Channel = new index_1.MamWriter(Network, Seed, Security);
                 Channel.changeMode(Mode, SideKey);
                 Root = Channel.getNextRoot();
+                console.log("ROOT");
+                console.log(Root);
                 create = Channel.create("HelloWorld".repeat(10));
-                console.log("Payload: ");
-                return [4 /*yield*/, Channel.attach(create.payload, Root)];
+                console.log("Created Tx: ");
+                console.log(create);
+                return [4 /*yield*/, Channel.attach(create.payload, create.address)];
             case 1:
                 Attach = _a.sent();
-                console.log("Attached: ");
                 Receiver = new index_1.MamReader(Network, Root, Mode, SideKey);
                 return [4 /*yield*/, Receiver.fetchSingle()];
             case 2:

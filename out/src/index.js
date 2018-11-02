@@ -119,7 +119,8 @@ var MamWriter = /** @class */ (function () {
         this.channel.mode = mode;
         //removed return of the state
     };
-    MamWriter.prototype.create = function (message) {
+    MamWriter.prototype.create = function (message, rounds) {
+        if (rounds === void 0) { rounds = 81; }
         //Interact with MAM Lib
         var TrytesMsg = converter.asciiToTrytes(message);
         var mam = node_1.Mam.createMessage(this.seed, TrytesMsg, this.channel.side_key, this.channel); //TODO: This could return an interface format
@@ -139,7 +140,8 @@ var MamWriter = /** @class */ (function () {
         //Generate attachment address
         var address;
         if (this.channel.mode !== MAM_MODE.PUBLIC) {
-            address = converter.trytes(Encryption.hash(81, converter.trits(mam.root.slice())));
+            console.log(mam.root);
+            address = hash(mam.root, rounds);
         }
         else {
             address = mam.root;
@@ -152,7 +154,7 @@ var MamWriter = /** @class */ (function () {
         };
     };
     //Todo: Remove the need to pass around root as the class should handle it?
-    MamWriter.prototype.attach = function (trytes, root, depth, mwm) {
+    MamWriter.prototype.attach = function (trytes, address, depth, mwm) {
         if (depth === void 0) { depth = 6; }
         if (mwm === void 0) { mwm = 12; }
         return __awaiter(this, void 0, void 0, function () {
@@ -161,7 +163,7 @@ var MamWriter = /** @class */ (function () {
                 return [2 /*return*/, new Promise(function (resolve, reject) {
                         var transfers;
                         transfers = [{
-                                address: root,
+                                address: address,
                                 value: 0,
                                 message: trytes
                             }];
@@ -218,45 +220,46 @@ var MamReader = /** @class */ (function () {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             return __generator(this, function (_a) {
-                return [2 /*return*/, new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
-                        var address, findTransactions;
-                        var _this = this;
-                        return __generator(this, function (_a) {
-                            address = this.nextRoot;
-                            if (this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
-                                address = hash(this.nextRoot, rounds);
-                            }
-                            findTransactions = core_1.composeAPI(this.provider).findTransactions;
-                            findTransactions({ addresses: [address] })
-                                .then(function (transactionHashes) { return __awaiter(_this, void 0, void 0, function () {
-                                var messagesGen, _i, messagesGen_1, maskedMessage, _a, message, nextRoot;
-                                return __generator(this, function (_b) {
-                                    switch (_b.label) {
-                                        case 0: return [4 /*yield*/, this.txHashesToMessages(transactionHashes)];
-                                        case 1:
-                                            messagesGen = _b.sent();
-                                            for (_i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) {
-                                                maskedMessage = messagesGen_1[_i];
-                                                try {
-                                                    _a = Decode(maskedMessage, this.sideKey, this.nextRoot), message = _a.message, nextRoot = _a.nextRoot;
-                                                    this.nextRoot = nextRoot;
-                                                    //Return payload
-                                                    resolve(converter.trytesToAscii(message));
-                                                }
-                                                catch (e) {
-                                                    reject("failed to parse: " + e);
-                                                }
-                                            }
-                                            return [2 /*return*/];
+                return [2 /*return*/, new Promise(function (resolve, reject) {
+                        var address = _this.nextRoot;
+                        if (_this.mode == MAM_MODE.PRIVATE || _this.mode == MAM_MODE.RESTRICTED) {
+                            address = hash(_this.nextRoot, rounds);
+                        }
+                        var findTransactions = core_1.composeAPI(_this.provider).findTransactions;
+                        findTransactions({ addresses: [address] })
+                            .then(function (transactionHashes) {
+                            console.log("TxHashes:");
+                            console.log(transactionHashes);
+                            _this.txHashesToMessages(transactionHashes)
+                                .then(function (messagesGen) {
+                                for (var _i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) {
+                                    var maskedMessage = messagesGen_1[_i];
+                                    try {
+                                        //Unmask the message
+                                        console.log("MaskedMessage:");
+                                        console.log(maskedMessage);
+                                        var _a = Decode(maskedMessage, _this.sideKey, _this.nextRoot), message = _a.message, nextRoot = _a.nextRoot;
+                                        console.log("Message:");
+                                        console.log(message);
+                                        _this.nextRoot = nextRoot;
+                                        //Return payload
+                                        console.log("Ascii:");
+                                        console.log(converter.trytesToAscii(message));
+                                        resolve(converter.trytesToAscii(message));
                                     }
-                                });
-                            }); })
+                                    catch (e) {
+                                        reject("failed to parse: " + e);
+                                    }
+                                }
+                            })
                                 .catch(function (error) {
-                                reject("findTransactions failed with " + error);
+                                reject("txHashesToMessages failed with " + error);
                             });
-                            return [2 /*return*/];
+                        })
+                            .catch(function (error) {
+                            reject("findTransactions failed with " + error);
                         });
-                    }); })];
+                    })];
             });
         });
     };

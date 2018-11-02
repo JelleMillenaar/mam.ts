@@ -38,12 +38,12 @@ export declare class MamWriter {
     constructor(provider: string, seed?: string, security?: number);
     createAndAttach(message: string): Promise<Transaction[]>;
     changeMode(mode: MAM_MODE, sideKey?: string): void;
-    create(message: string): {
+    create(message: string, rounds?: number): {
         payload: string;
         root: string;
         address: string;
     };
-    attach(trytes: string, root: string, depth?: number, mwm?: number): Promise<Transaction[]>;
+    attach(trytes: string, address: string, depth?: number, mwm?: number): Promise<Transaction[]>;
     getNextRoot(): any;
 }
 export declare class MamReader {
