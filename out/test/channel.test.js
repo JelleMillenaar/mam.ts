@@ -38,6 +38,7 @@ var _this = this;
 Object.defineProperty(exports, "__esModule", { value: true });
 var ava_1 = require("ava");
 var index_1 = require("../src/index");
+<<<<<<< HEAD
 var trytes = null;
 var root = null;
 var adress = null;
@@ -125,4 +126,38 @@ var _loop_1 = function (item) {
 for (var item in Object.keys(index_1.MAM_MODE).filter(function (key) { return isNaN(Number(key)); })) {
     _loop_1(item);
 }
+=======
+//Variables
+var Network = 'https://testnet140.tangle.works';
+var Security = 1;
+var Mode = index_1.MAM_MODE.PRIVATE;
+var SideKey = undefined;
+var Seed = undefined;
+ava_1.default.serial('Send & Receive Public MAM Transaction', function (t) { return __awaiter(_this, void 0, void 0, function () {
+    var Channel, Root, create, Attach, Receiver, Result;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                Channel = new index_1.MamWriter(Network, Seed, Security);
+                Channel.changeMode(Mode, SideKey);
+                Root = Channel.getNextRoot();
+                console.log("ROOT");
+                console.log(Root);
+                create = Channel.create("HelloWorld".repeat(10));
+                console.log("Created Tx: ");
+                console.log(create);
+                return [4 /*yield*/, Channel.attach(create.payload, create.address)];
+            case 1:
+                Attach = _a.sent();
+                Receiver = new index_1.MamReader(Network, Root, Mode, SideKey);
+                return [4 /*yield*/, Receiver.fetchSingle()];
+            case 2:
+                Result = _a.sent();
+                console.log("Result: ");
+                console.log(Result);
+                return [2 /*return*/];
+        }
+    });
+}); });
+>>>>>>> a6fea1c49534b15ee496c4197ac1a673a90807a5
 //# sourceMappingURL=channel.test.js.map
