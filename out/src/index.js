@@ -68,9 +68,9 @@ var provider = null;
 //Introduced a Enum for the mode with string values to allow backwards compatibility. Enum removes the need for string compare checks.
 var MAM_MODE;
 (function (MAM_MODE) {
-    MAM_MODE["PUBLIC"] = "public";
-    MAM_MODE["PRIVATE"] = "private";
-    MAM_MODE["RESTRICTED"] = "restricted";
+    MAM_MODE[MAM_MODE["PUBLIC"] = 0] = "PUBLIC";
+    MAM_MODE[MAM_MODE["PRIVATE"] = 1] = "PRIVATE";
+    MAM_MODE[MAM_MODE["RESTRICTED"] = 2] = "RESTRICTED";
 })(MAM_MODE = exports.MAM_MODE || (exports.MAM_MODE = {}));
 var MamWriter = /** @class */ (function () {
     //Replaces init
@@ -100,12 +100,9 @@ var MamWriter = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         Result = this.create(message);
-                        console.log("Create finished");
                         return [4 /*yield*/, this.attach(Result.payload, Result.root)];
                     case 1:
                         Result2 = _a.sent();
-                        console.log("Derp");
-                        console.log(Result2);
                         return [2 /*return*/, Result2];
                 }
             });
@@ -124,7 +121,8 @@ var MamWriter = /** @class */ (function () {
     };
     MamWriter.prototype.create = function (message) {
         //Interact with MAM Lib
-        var mam = node_1.Mam.createMessage(this.seed, message, this.channel.side_key, this.channel); //TODO: This could return an interface format
+        var TrytesMsg = converter.asciiToTrytes(message);
+        var mam = node_1.Mam.createMessage(this.seed, TrytesMsg, this.channel.side_key, this.channel); //TODO: This could return an interface format
         //If the tree is exhausted
         if (this.channel.index == this.channel.count - 1) { //Two equals should be enough in typescript
             //change start to beginning of next tree.
@@ -157,41 +155,38 @@ var MamWriter = /** @class */ (function () {
     //Todo: Remove the need to pass around root as the class should handle it?
     MamWriter.prototype.attach = function (trytes, root, depth, mwm) {
         if (depth === void 0) { depth = 6; }
-        if (mwm === void 0) { mwm = 14; }
+        if (mwm === void 0) { mwm = 12; }
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             return __generator(this, function (_a) {
-                return [2 /*return*/, new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
-                        var transfers, sendTrytes, prepareTransfers;
-                        return __generator(this, function (_a) {
-                            transfers = [{
-                                    address: root,
-                                    value: 0,
-                                    message: trytes
-                                }];
-                            sendTrytes = core_1.composeAPI(this.provider).sendTrytes;
-                            prepareTransfers = core_1.createPrepareTransfers();
-                            prepareTransfers('9'.repeat(81), transfers, {})
-                                .then(function (transactionTrytes) {
-                                sendTrytes(transactionTrytes, depth, mwm)
-                                    .then(function (transactions) {
-                                    resolve(transactions);
-                                })
-                                    .catch(function (error) {
-                                    reject("sendTrytes failed: " + error);
-                                });
+                return [2 /*return*/, new Promise(function (resolve, reject) {
+                        var transfers;
+                        transfers = [{
+                                address: root,
+                                value: 0,
+                                message: trytes
+                            }];
+                        var sendTrytes = core_1.composeAPI(_this.provider).sendTrytes;
+                        var prepareTransfers = core_1.createPrepareTransfers();
+                        prepareTransfers('9'.repeat(81), transfers, {})
+                            .then(function (transactionTrytes) {
+                            sendTrytes(transactionTrytes, depth, mwm)
+                                .then(function (transactions) {
+                                resolve(transactions);
                             })
                                 .catch(function (error) {
-                                reject("failed to attach message: " + error);
+                                reject("sendTrytes failed: " + error);
                             });
-                            return [2 /*return*/];
+                        })
+                            .catch(function (error) {
+                            reject("failed to attach message: " + error);
                         });
-                    }); })];
+                    })];
             });
         });
     };
-    //Current root
-    MamWriter.prototype.getRoot = function () {
+    //Next root
+    MamWriter.prototype.getNextRoot = function () {
         return node_1.Mam.getMamRoot(this.seed, this.channel);
     };
     return MamWriter;
@@ -221,36 +216,46 @@ var MamReader = /** @class */ (function () {
         if (sidekey === void 0) { sidekey = this.sideKey; }
         if (rounds === void 0) { rounds = 81; }
         return __awaiter(this, void 0, void 0, function () {
-            var address, findTransactions, hashes, messagesGen, _i, messagesGen_1, message, _a, payload, next_root;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        address = root;
-                        if (mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
-                            address = hash(root, rounds);
-                        }
-                        findTransactions = core_1.composeAPI(this.provider).findTransactions;
-                        return [4 /*yield*/, pify(findTransactions)({
-                                addresses: [address]
-                            })];
-                    case 1:
-                        hashes = _b.sent();
-                        return [4 /*yield*/, txHashesToMessages(hashes, this.provider)];
-                    case 2:
-                        messagesGen = _b.sent();
-                        for (_i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) {
-                            message = messagesGen_1[_i];
-                            try {
-                                _a = decode(message, sidekey, root), payload = _a.payload, next_root = _a.next_root;
-                                //Return payload
-                                return [2 /*return*/, { payload: payload, nextRoot: next_root }];
+            var _this = this;
+            return __generator(this, function (_a) {
+                return [2 /*return*/, new Promise(function (resolve, reject) { return __awaiter(_this, void 0, void 0, function () {
+                        var address, findTransactions;
+                        var _this = this;
+                        return __generator(this, function (_a) {
+                            address = root;
+                            if (mode == MAM_MODE.PRIVATE || mode == MAM_MODE.RESTRICTED) {
+                                address = hash(root, rounds);
                             }
-                            catch (e) {
-                                throw "failed to parse: " + e; //Changed console.error to stay consistent
-                            }
-                        }
-                        return [2 /*return*/];
-                }
+                            findTransactions = core_1.composeAPI(this.provider).findTransactions;
+                            findTransactions({ addresses: [address] })
+                                .then(function (transactionHashes) { return __awaiter(_this, void 0, void 0, function () {
+                                var messagesGen, _i, messagesGen_1, message, _a, payload, next_root;
+                                return __generator(this, function (_b) {
+                                    switch (_b.label) {
+                                        case 0: return [4 /*yield*/, txHashesToMessages(transactionHashes, this.provider)];
+                                        case 1:
+                                            messagesGen = _b.sent();
+                                            for (_i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) {
+                                                message = messagesGen_1[_i];
+                                                try {
+                                                    _a = Decode(message, sidekey, root), payload = _a.payload, next_root = _a.next_root;
+                                                    //Return payload
+                                                    resolve({ payload: converter.trytesToAscii(payload), nextRoot: next_root });
+                                                }
+                                                catch (e) {
+                                                    reject("failed to parse: " + e);
+                                                }
+                                            }
+                                            return [2 /*return*/];
+                                    }
+                                });
+                            }); })
+                                .catch(function (error) {
+                                reject("findTransactions failed with " + error);
+                            });
+                            return [2 /*return*/];
+                        });
+                    }); })];
             });
         });
     };
@@ -295,7 +300,7 @@ var MamReader = /** @class */ (function () {
                         for (_i = 0, messagesGen_2 = messagesGen; _i < messagesGen_2.length; _i++) {
                             message = messagesGen_2[_i];
                             try {
-                                _a = decode(message, sidekey, nextRoot), payload = _a.payload, next_root = _a.next_root;
+                                _a = Decode(message, sidekey, nextRoot), payload = _a.payload, next_root = _a.next_root;
                                 //Push payload into the messages array
                                 if (callback == undefined) {
                                     messages.push(payload);
@@ -357,16 +362,18 @@ function txHashesToMessages(hashes, provider) {
         });
     });
 }
-function decode(payload, side_key, root) {
+function Decode(payload, side_key, root) {
     return node_1.Mam.decodeMessage(payload, side_key, root);
 }
-exports.decode = decode;
+exports.Decode = Decode;
+//Export?
 function hash(data, rounds) {
     if (rounds === void 0) { rounds = 81; }
     return converter.trytes(Encryption.hash(rounds, //Removed the || statement with 81 as 81 is now default
     converter.trits(data.slice())).slice());
 }
 exports.hash = hash;
+//Export?
 function keyGen(length) {
     var charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ9';
     var key = '';

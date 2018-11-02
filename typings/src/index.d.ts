@@ -1,3 +1,4 @@
+import { Transaction } from '@iota/core/typings/types';
 /**
  * TODO: Add typing - Better use excisting typing in @iota/core and others?
  *
@@ -16,9 +17,9 @@
  * - Address?
  */
 export declare enum MAM_MODE {
-    PUBLIC = "public",
-    PRIVATE = "private",
-    RESTRICTED = "restricted"
+    PUBLIC = 0,
+    PRIVATE = 1,
+    RESTRICTED = 2
 }
 export interface channel {
     side_key: string | null;
@@ -35,15 +36,15 @@ export declare class MamWriter {
     private channel;
     private seed;
     constructor(provider: string, seed?: string, security?: number);
-    createAndAttach(message: string): Promise<{}>;
+    createAndAttach(message: string): Promise<Transaction[]>;
     changeMode(mode: MAM_MODE, sideKey?: string): void;
     create(message: string): {
         payload: string;
         root: string;
         address: string;
     };
-    attach(trytes: string, root: string, depth?: number, mwm?: number): Promise<{}>;
-    getRoot(): any;
+    attach(trytes: string, root: string, depth?: number, mwm?: number): Promise<Transaction[]>;
+    getNextRoot(): any;
 }
 export declare class MamReader {
     private provider;
@@ -61,7 +62,7 @@ export declare class MamReader {
         messages: any[];
     }>;
 }
-export declare function decode(payload: string, side_key: string, root: string): {
+export declare function Decode(payload: string, side_key: string, root: string): {
     payload: any;
     next_root: any;
 };
