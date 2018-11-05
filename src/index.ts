@@ -161,10 +161,10 @@ export class MamWriter {
                 value : 0,
                 message : trytes
             }];
-
             const { sendTrytes } : any = composeAPI(this.provider);
             const prepareTransfers = createPrepareTransfers();
-
+            console.log(transfers[0]);
+            console.log(transfers[1]);
             prepareTransfers('9'.repeat(81), transfers, {})
             .then( (transactionTrytes) => {
                 sendTrytes(transactionTrytes, depth, mwm)
