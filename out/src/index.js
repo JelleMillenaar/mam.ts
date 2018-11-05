@@ -99,7 +99,7 @@ var MamWriter = /** @class */ (function () {
                 switch (_a.label) {
                     case 0:
                         Result = this.create(message);
-                        return [4 /*yield*/, this.attach(Result.payload, Result.root)];
+                        return [4 /*yield*/, this.attach(Result.payload, Result.address)];
                     case 1:
                         Result2 = _a.sent();
                         return [2 /*return*/, Result2];
@@ -140,7 +140,6 @@ var MamWriter = /** @class */ (function () {
         //Generate attachment address
         var address;
         if (this.channel.mode !== MAM_MODE.PUBLIC) {
-            console.log(mam.root);
             address = hash(mam.root, rounds);
         }
         else {
@@ -167,12 +166,10 @@ var MamWriter = /** @class */ (function () {
                                 value: 0,
                                 message: trytes
                             }];
-                        for (var item in transfers) {
-                            console.log(item + transfers[item].address);
-                            console.log("NOOOOOOOO");
-                        }
                         var sendTrytes = core_1.composeAPI(_this.provider).sendTrytes;
                         var prepareTransfers = core_1.createPrepareTransfers();
+                        console.log(transfers[0]);
+                        console.log(transfers[1]);
                         prepareTransfers('9'.repeat(81), transfers, {})
                             .then(function (transactionTrytes) {
                             sendTrytes(transactionTrytes, depth, mwm)
@@ -232,23 +229,15 @@ var MamReader = /** @class */ (function () {
                         var findTransactions = core_1.composeAPI(_this.provider).findTransactions;
                         findTransactions({ addresses: [address] })
                             .then(function (transactionHashes) {
-                            console.log("TxHashes:");
-                            console.log(transactionHashes);
                             _this.txHashesToMessages(transactionHashes)
                                 .then(function (messagesGen) {
                                 for (var _i = 0, messagesGen_1 = messagesGen; _i < messagesGen_1.length; _i++) {
                                     var maskedMessage = messagesGen_1[_i];
                                     try {
                                         //Unmask the message
-                                        console.log("MaskedMessage:");
-                                        console.log(maskedMessage);
                                         var _a = Decode(maskedMessage, _this.sideKey, _this.nextRoot), message = _a.message, nextRoot = _a.nextRoot;
-                                        console.log("Message:");
-                                        console.log(message);
                                         _this.nextRoot = nextRoot;
                                         //Return payload
-                                        console.log("Ascii:");
-                                        console.log(converter.trytesToAscii(message));
                                         resolve(converter.trytesToAscii(message));
                                     }
                                     catch (e) {
