@@ -3,6 +3,12 @@ logs
 *.log
 npm-debug.log*
 yarn-error.log
+.nyc_output
+
+#Temp ignore
+out
+typings
 
 # Dependency directory
 node_modules
+
