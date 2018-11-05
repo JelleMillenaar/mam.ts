@@ -181,7 +181,10 @@ export class MamWriter {
         });
     }
 
-    //Catchup channel
+    /**
+     * 
+     * @param rounds 
+     */
     public async catchUpThroughNetwork(rounds : number = 81) : Promise<string[]> {
         return new Promise<string[]> (async (resolve, reject) => {
             //Set variables
@@ -206,16 +209,7 @@ export class MamWriter {
                         previousRootes.push(this.channel.next_root);
 
                         //Find the next root - Straight up stolen from node.ts atm. 
-                        let SEED_trits = MamDetails.string_to_ctrits_trits(this.seed);
-
-                        const SECURITY = this.channel.security;
-                        const START = this.channel.start;
-                        const COUNT = this.channel.count;
-                        const NEXT_START = START + COUNT;
-                        const NEXT_COUNT = this.channel.next_count;
-
-                        // set up merkle tree
-                        let next_root_merkle = MamDetails.iota_merkle_create( SEED_trits, NEXT_START, NEXT_COUNT, SECURITY );
+                        let next_root_merkle = MamDetails.iota_merkle_create( MamDetails.string_to_ctrits_trits(this.seed), this.channel.start + this.channel.count, this.channel.next_count, this.channel.security );
                         let next_root = MamDetails.iota_merkle_slice(next_root_merkle);
                         this.AdvanceChannel ( MamDetails.ctrits_trits_to_string(next_root) );
                     }
