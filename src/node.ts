@@ -1,5 +1,4 @@
 const IOTA = require('./IOTA.js')
-const Main = require('./index.js')
 
 //////////////////////////////////////////////////////////////////
 /* ======= CTrits bindings ======= */
@@ -251,6 +250,15 @@ export const Mam = {
     createMessage,
     getMamAddress,
     getMamRoot
+}
+
+export const MamDetails = {
+    string_to_ctrits_trits,
+    iota_merkle_create,
+    iota_merkle_branch,
+    iota_merkle_siblings,
+    iota_merkle_slice,
+    ctrits_trits_to_string
 }
 
 // Feed Mam functions into the main file

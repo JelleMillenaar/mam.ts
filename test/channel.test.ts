@@ -8,16 +8,23 @@ let Network = 'https://testnet140.tangle.works';
 let Security = 1;
 let Mode = MAM_MODE.PRIVATE;
 let SideKey = undefined;
-let Seed = undefined;
+let Seed = "9A".repeat(40) + "F";
 let Msg = "Hello World".repeat(5);
 
 test('Send & Receive Public MAM Transaction', async t => {
     let Channel : MamWriter = new MamWriter(Network, Seed, Security);
     Channel.changeMode(Mode, SideKey);
+    //NEW
+    let PreviousRoots : string[] = await Channel.catchUpThroughNetwork();
+    console.log("Previous Message Roots: " + PreviousRoots.length);
+    for(let i=0; i < PreviousRoots.length; i++) {
+        console.log(PreviousRoots[i]);
+    }
+    //END NEW
     let Root = Channel.getNextRoot();
-    console.log("ROOT");
-    console.log(Root);
-    let create = Channel.create("HelloWorld".repeat(10));
+    //console.log("ROOT");
+    //console.log(Root);
+    let create = Channel.create(Msg);
     console.log("Created Tx: ");
     console.log(create);
     let Attach = await Channel.attach(create.payload, create.address);
