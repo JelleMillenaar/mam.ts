@@ -1,7 +1,7 @@
 import test from 'ava'
-import { MamWriter, MamReader, MAM_MODE, Decode } from '../src/index';
-import { INVALID_TAIL_TRANSACTION } from '@iota/core/typings/errors';
-import { stringify } from 'querystring';
+import { MamWriter, MamReader } from '../src/index';
+import { MAM_MODE } from '../src/Settings';
+import { Decode } from '../src/Decode';
 
 let trytes : string | null = null;
 let root : string | null = null;
