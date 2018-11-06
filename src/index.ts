@@ -9,6 +9,7 @@ import { Transaction, Transfer } from '@iota/core/typings/types';
 import { Mam, MamDetails } from './node'; //New binding?
 import { Settings } from '@iota/http-client/typings/http-client/src/settings'; //Added for Provider typing
 import * as Bluebird from 'bluebird'
+import { clearInterval } from 'timers';
 
 //Setup Provider
 let provider : string = null;
@@ -119,18 +120,36 @@ export class MamWriter {
             this.channel.side_key = sideKey;
         }
         this.channel.mode = mode;
-        //removed return of the state
     }
 
+    /**
+     * 
+     * @param message 
+     * @returns The result of the Attach function.
+     */
     public async createAndAttach(message : string) {
         let Result : {payload : string, root : string, address : string} = this.create(message);
         let Result2 = await this.attach(Result.payload, Result.address);
         return Result2;
     }
 
-    public create(message : string, rounds : number = 81) : {payload : string, root : string, address : string} {
+    /**
+     * Prepares the message by converting it into a valid payload. It also generates the root and address.
+     * The payload can be attached to the IOTA network later through the Attach function.
+     * It is recommended to use createAndAttach in most cases, unless more direct control is needed or the app runs on an instable internet connection.
+     * @param message The message to add to the MAM stream. Expectes a plaintext string or trinary string, depending on inputTrinary.
+     * @param inputTrinary A boolean that changes the behavior with the message parameter. If true, the message is considerd a trinary string, otherwise a plaintext string.
+     * @returns Returns an object with 3 variables:
+     * Payload: The masked message that can be put on the IOTA network as the next MAM message.
+     * Root: The root of the message, required to find and decode the message with MamReader.
+     * Address: The address were the message will be sent to on the IOTA network. Needed for the Attach function.
+     */
+    public create(message : string, inputTrinary : boolean = false) : {payload : string, root : string, address : string} {
         //Interact with MAM Lib
-        let TrytesMsg = converter.asciiToTrytes(message);
+        let TrytesMsg = message;
+        if(!inputTrinary) {
+            TrytesMsg = converter.asciiToTrytes(message);
+        }
         const mam = Mam.createMessage(this.seed, TrytesMsg, this.channel.side_key, this.channel); //TODO: This could return an interface format
 
         //If the tree is exhausted
@@ -139,7 +158,7 @@ export class MamWriter {
         //Generate attachment address
         let address : string;
         if(this.channel.mode !== MAM_MODE.PUBLIC) {
-            address = hash(mam.root, rounds);
+            address = hash(mam.root);
         } else {
             address = mam.root;
         }
@@ -152,19 +171,24 @@ export class MamWriter {
         }
     }
 
-    //Todo: Remove the need to pass around root as the class should handle it?
-    public async attach(trytes : string, address : string, depth : number = 6, mwm : number = 12) : Promise<Transaction[]> {
+    /**
+     * Attaches a previously prepared payload to the IOTA network as part of the MAM stream.
+     * @param payload A trinary encoded masked payload created by the create function.
+     * @param address The address where the MAM transaction is sent to.
+     * @param depth The depth that is used for Tip selection by the node.
+     * @param mwm The Proof-of-Work difficulty used. Recommended to use 12 on testnetwork and 14 on the mainnet. (Might be changed later)
+     * @returns An array of transactions that have been send to the network. 
+     */
+    public async attach(payload : string, address : string, depth : number = 6, mwm : number = 12) : Promise<Transaction[]> {
         return new Promise<Transaction[]> ( (resolve, reject) => {
             let transfers : Transfer[];
             transfers = [ {
                 address : address,
                 value : 0,
-                message : trytes
+                message : payload
             }];
             const { sendTrytes } : any = composeAPI(this.provider);
             const prepareTransfers = createPrepareTransfers();
-            console.log(transfers[0]);
-            console.log(transfers[1]);
             prepareTransfers('9'.repeat(81), transfers, {})
             .then( (transactionTrytes) => {
                 sendTrytes(transactionTrytes, depth, mwm)
@@ -182,10 +206,12 @@ export class MamWriter {
     }
 
     /**
-     * 
-     * @param rounds 
+     * Useful to call after a MamWriter is created and the input seed has been previously used. 
+     * This function makes sure that the next message that is added to the MAM stream is appended at the end of the MAM stream.
+     * It is required that the entire MAM stream of this seed + mode is avaliable by the given node.
+     * @returns An array of the previous roots of all messages used in the stream so far.
      */
-    public async catchUpThroughNetwork(rounds : number = 81) : Promise<string[]> {
+    public async catchUpThroughNetwork() : Promise<string[]> {
         return new Promise<string[]> (async (resolve, reject) => {
             //Set variables
             let previousRootes : string[] = [];
@@ -195,7 +221,7 @@ export class MamWriter {
                 //Apply channel mode
                 let address : string = this.channel.next_root;
                 if(this.channel.mode == MAM_MODE.PRIVATE || this.channel.mode == MAM_MODE.RESTRICTED) {
-                    address = hash(this.channel.next_root, rounds);
+                    address = hash(this.channel.next_root);
                 }
 
                 const { findTransactions } : any = composeAPI( this.provider );
@@ -222,11 +248,17 @@ export class MamWriter {
         });
     }
 
-    //Next root
-    public getNextRoot() {
+    /**
+     * @returns The root of the next message. Can be used to later retrieve the message with the MamReader.
+     */
+    public getNextRoot() : string {
         return Mam.getMamRoot(this.seed, this.channel);
     }  
 
+    /**
+     * Private function that advanced the merkle tree to the next step for the MAM stream. Sets the channel settings appropriatly. 
+     * @param root The root of the next MAM transaction.
+     */
     private AdvanceChannel(root : string) {
         //If the tree is exhausted
         if(this.channel.index == this.channel.count - 1) {
@@ -244,6 +276,9 @@ export class MamWriter {
     }
 }
 
+/**
+ * The MamReader can read a MAM stream in several ways.
+ */
 export class MamReader {
     private provider : Partial<Settings>;
     private sideKey : string | null = null;
@@ -272,11 +307,11 @@ export class MamReader {
         this.nextRoot = root;
     }
 
-    public async fetchSingle (rounds : number = 81) : Promise<string> { //TODO: test, Returning a Promise correct?
+    public async fetchSingle () : Promise<string> { //TODO: test, Returning a Promise correct?
         return new Promise<string> ((resolve, reject) => {
             let address : string = this.nextRoot;
             if( this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
-                address = hash(this.nextRoot, rounds);
+                address = hash(this.nextRoot);
             }
             //Get the function from the IOTA API
             const { findTransactions } : any = composeAPI( this.provider);
@@ -310,7 +345,7 @@ export class MamReader {
         });
     }
 
-    public async fetch(rounds : number = 81) : Promise<string[]> {
+    public async fetch() : Promise<string[]> {
         return new Promise<string[]> (async (resolve, reject) => {
             //Set variables
             const messages : string[] = [];
@@ -320,7 +355,7 @@ export class MamReader {
                 //Apply channel mode
                 let address : string = this.nextRoot;
                 if(this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
-                    address = hash(this.nextRoot, rounds);
+                    address = hash(this.nextRoot);
                 }
 
                 const { findTransactions } : any = composeAPI( this.provider );
@@ -403,6 +438,66 @@ export class MamReader {
     }
 }
 
+interface Subscription {
+    active : boolean;
+    timer : NodeJS.Timeout;
+    callback : (messages:string[]) => void;
+    reader : MamReader;
+}
+
+export class MamListener {
+    private provider : string;
+    private reader : MamReader;
+    private subscriptions : Subscription[];
+    private subCounter : number;
+
+    constructor(provider : string) {
+        //Sets the variables
+        this.provider = provider;
+        this.subscriptions = [];
+    }
+
+    public Subscribe(interval : number, callback : (messages:string[]) => void, root : string, mode : MAM_MODE = MAM_MODE.PUBLIC, sideKey ?: string) : number {
+        let newSub : Subscription;
+        newSub.active = true;
+        newSub.callback = callback;
+        newSub.reader = new MamReader(this.provider, root, mode, sideKey);
+        let IndexSub : number = this.subscriptions.length;
+        newSub.timer = setInterval((() => {this.CheckForMessages(IndexSub)}), interval);
+        this.subscriptions.push(newSub);
+        return IndexSub;
+    }
+
+    public UnSubscribe(index : number) {
+        if(this.subscriptions[index] != undefined) {
+            this.subscriptions[index].active = false;
+        } else {
+            console.log(`Unsubscribe called with invalid index: ${index}`);
+        }
+    }
+
+    private CheckForMessages(index : number) : void {
+        console.log("Beep:"+index);
+        if(this.subscriptions[index].active) {
+            //Fetch all messages
+            this.subscriptions[index].reader.fetch()
+            .then((Messages) => {
+                //Messages have been received - Send through callback
+                if(Messages.length) {
+                    this.subscriptions[index].callback(Messages);
+                }
+            })
+            .catch((error) => {
+                console.log(`Subscription ${index} had an issue: ${error}`);
+            });
+        } else {
+            //Remove the subscription
+            clearInterval(this.subscriptions[index].timer);
+            delete this.subscriptions[index];
+        }
+    }
+}
+
 //Export?
 export function Decode(payload : string, side_key : string, root : string) : { message : string, nextRoot : string } {
     let Result : {payload : any, next_root : any} =  Mam.decodeMessage(payload, side_key, root);
@@ -410,7 +505,7 @@ export function Decode(payload : string, side_key : string, root : string) : { m
 }
 
 //Export?
-export function hash (data, rounds = 81) {
+export function hash (data : string, rounds : number = 81) {
     return converter.trytes(
         Encryption.hash( 
             rounds, //Removed the || statement with 81 as 81 is now default
