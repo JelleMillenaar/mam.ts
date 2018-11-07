@@ -6,13 +6,13 @@ import * as converter from '@iota/converter';
 import { Transaction, Transfer } from '@iota/core/typings/types';
 import { composeAPI, createPrepareTransfers } from '@iota/core';
 import { hash } from './hash';
-import { MAM_MODE } from './Settings';
+import { MAM_MODE, MAM_SECURITY } from './Settings';
 
 interface channel {
     side_key : string | null;
     mode : MAM_MODE;
     next_root : string | null;
-    security : number; //Enum?
+    security : MAM_SECURITY; //Enum?
     start : number;
     count : number;
     next_count : number;
@@ -44,7 +44,7 @@ export class MamWriter {
      * To keep building on the same stream, the same seed is required. A random UNSECURE seed is generated if no seed is supplied.
      * @param security Security level for the stream. Security 1 is a bit unsecure, but fast and recommended for MAM. Security 2 is secure. Security 3 is for accessive security.
      */
-    constructor(provider: string, seed : string = keyGen(81), security : number = 1) {
+    constructor(provider: string, seed : string = keyGen(81), security : MAM_SECURITY = MAM_SECURITY.LEVEL_1) {
         //Set IOTA provider
         this.provider = { provider : provider };
 
@@ -53,7 +53,7 @@ export class MamWriter {
             side_key: null,
             mode: MAM_MODE.PUBLIC,
             next_root: null,
-            security : security, //This was not set in javascript version?
+            security : security,
             start: 0,
             count: 1,
             next_count: 1,
@@ -144,7 +144,7 @@ export class MamWriter {
      * @param mwm The Proof-of-Work difficulty used. Recommended to use 12 on testnetwork and 14 on the mainnet. (Might be changed later)
      * @returns An array of transactions that have been send to the network. 
      */
-    public async attach(payload : string, address : string, depth : number = 6, mwm : number = 12) : Promise<Transaction[]> {
+    public async attach(payload : string, address : string, depth : number = 6, mwm : number = 14) : Promise<Transaction[]> {
         return new Promise<Transaction[]> ( (resolve, reject) => {
             let transfers : Transfer[];
             transfers = [ {

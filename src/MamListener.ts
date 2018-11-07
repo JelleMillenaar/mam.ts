@@ -21,12 +21,32 @@ export class MamListener {
     }
 
     public Subscribe(interval : number, callback : (messages:string[]) => void, root : string, mode : MAM_MODE = MAM_MODE.PUBLIC, sideKey ?: string) : number {
-        let newSub : Subscription;
-        newSub.active = true;
-        newSub.callback = callback;
-        newSub.reader = new MamReader(this.provider, root, mode, sideKey);
         let IndexSub : number = this.subscriptions.length;
-        newSub.timer = setInterval((() => {this.CheckForMessages(IndexSub)}), interval);
+        let newSub : Subscription = {
+            active : true,
+            callback : callback,
+            reader : new MamReader(this.provider, root, mode, sideKey),
+            timer : setInterval((() =>  {
+                console.log("HELLO!");
+                if(this.subscriptions[IndexSub].active) {
+                    //Fetch all messages
+                    this.subscriptions[IndexSub].reader.fetch()
+                    .then((Messages) => {
+                        //Messages have been received - Send through callback
+                        if(Messages.length) {
+                            this.subscriptions[IndexSub].callback(Messages);
+                        }
+                    })
+                    .catch((error) => {
+                        console.log(`Subscription ${IndexSub} had an issue: ${error}`);
+                    });
+                } else {
+                    //Remove the subscription
+                    clearInterval(this.subscriptions[IndexSub].timer);
+                    delete this.subscriptions[IndexSub];
+                }
+            }), interval)
+        }
         this.subscriptions.push(newSub);
         return IndexSub;
     }
@@ -40,7 +60,7 @@ export class MamListener {
     }
 
     private CheckForMessages(index : number) : void {
-        console.log("Beep:"+index);
+        console.log("HELLO!");
         if(this.subscriptions[index].active) {
             //Fetch all messages
             this.subscriptions[index].reader.fetch()

@@ -1,82 +1,128 @@
 import test from 'ava'
-import { MamWriter, MamReader } from '../src/index';
-import { MAM_MODE } from '../src/Settings';
+import { MamWriter, MamReader, MamListener } from '../src/index';
+import { MAM_MODE, MAM_SECURITY } from '../src/Settings';
 import { Decode } from '../src/Decode';
 
-let trytes : string | null = null;
-let root : string | null = null;
-let adress : string | null = null;
-let side_key : string | null = "0";
-let payload : string = "";
-let create;
+interface TestCase {
+    security : MAM_SECURITY;
+    mode : MAM_MODE;
+    seed : string | undefined;
+    sideKey : string | undefined;
+    msg : string;
+}
 
+//Create the test cases
+let ListenerTimeout = 15000;
+let ListenerLoop = ListenerTimeout / 1;
+let TestCases : TestCase[] = [];
+TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PUBLIC, seed : undefined, sideKey : "999", msg: "Hello World!"} );
+TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PRIVATE, seed : undefined, sideKey : "999", msg: "Hello World!"} );
+TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.RESTRICTED, seed : undefined, sideKey : "999", msg: "Hello World!"} );
 /**
  * We're looping through the Masked Authenticated messaging mode's: Public, Private & Restricted.
  * For each of these mode's we will test the: Create, Attach & Fetch.
  */
 
- // Filter out the none numbers out of the for loop.s
-for(let item in Object.keys(MAM_MODE).filter(key => isNaN(Number(key)))){
+//https://nodes.devnet.thetangle.org:443
+//https://testnet140.tangle.works
 
+ // Filter out the none numbers out of the for loop.
+for( let Case of TestCases){
     // Set the security by comparing the current Mam mode (public = 0, private = 1, restricted = 2).
-    let security = MAM_MODE[MAM_MODE[item]] + 1;
-    // Creating default mam writer channel.
-    let writerChannel : MamWriter | null = null;
-    // Creating default  mam reader channel.
-    let readerChannel : MamReader | null = null;
-    let Msg = "HelloWorld";
+    let writerChannel : MamWriter = new MamWriter('https://nodes.thetangle.org:443',undefined, Case.security);
+    writerChannel.changeMode(Case.mode, Case.sideKey);
+
+    let fetchSingleReader : MamReader = new MamReader('https://nodes.thetangle.org:443', writerChannel.getNextRoot());
+    let fetchAllReader : MamReader = new MamReader('https://nodes.thetangle.org:443', writerChannel.getNextRoot());
+    //let listener : MamListener = new MamListener('https://testnet140.tangle.works');
+    let listenerResult : string[] = [];
+    let listenerCounter = 0;
+    /*listener.Subscribe(ListenerLoop, (messages : string[]) => {
+        listenerCounter++;
+        listenerResult.concat(messages);
+        console.log("Subscription Found a thing: ");
+        console.log(messages);
+    }, writerChannel.getNextRoot(), Case.mode, Case.sideKey);*/
+
+    //Expected Messages for the queueing messages
+    let ExpectedMessages : string[] = [];
+    for(let i=0; i < TestCases.length; i++) {
+        //Add message to the queue
+        if(TestCases[i].seed == Case.seed) {
+            ExpectedMessages.push(TestCases[i].msg);
+        }
+
+        //Break if we are the same test
+        if(TestCases[i] == Case) {
+            break;
+        }
+    }
     
-    //Set the mam channels.
-    writerChannel = new MamWriter('https://testnet140.tangle.works',undefined, security);
-    writerChannel.changeMode(MAM_MODE[item.toString()], side_key);
-    readerChannel = new MamReader('https://testnet140.tangle.works', writerChannel.getNextRoot());
-    
+    //State variables
+    let trytes : string | null = null;
+    let root : string | null = null;
+    let address : string | null = null;
+    let payload : string = "";
 
 
-//Mam create
-test.serial('MAM Create, mode ' + MAM_MODE[item].toLowerCase(), t => {
-    //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
-    t.plan(2)
-    t.log("We are now Creating a " + MAM_MODE[item].toLowerCase() +" MAM!")
-    create = writerChannel.create(Msg.repeat(1));
+    //Mam create
+    test.serial('MAM Create, mode ' + Case.mode, t => {
+        //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
+        let createResult = writerChannel.create(Case.msg);
 
-    //Assertion 1: Compare if the object we receive is not equal to the previous set variables.
-    t.not(create, {payload: trytes, root: root, address: adress},  "We received a new MaM")
-    
-    trytes = create.payload;
-    root = create.root;
-    adress = create.address;
-    t.log(adress);
-    //Assertion 2: Passing assertion.
-    t.pass("create complete!")
-})
+        //Update state
+        trytes = createResult.payload;
+        root = createResult.root;
+        address = createResult.address;
 
-test.serial('MAM Attach, mode ' + MAM_MODE[item].toLowerCase(), async t => {
-    t.log("Trytes: " + trytes)
-    t.log("Adress: " + adress)
-    t.log("Sidekey: " + side_key )
-    t.plan(2)
-    t.log("We are now Attaching!")
-    let attach = await writerChannel.attach(create.payload, create.address,undefined,12);
-     attach.forEach(element => {
-         payload += element.signatureMessageFragment
-     });
-    let test = Decode(payload, side_key,adress)
-    let test2 = Decode(trytes, side_key,adress)
-    t.deepEqual(test.message, test2.message)
-    
-    t.pass(MAM_MODE[item].toLowerCase() + "attach complete!")
-})
+        //Assertion 1: Compare if the object we receive is not equal to the previous set variables.
+        t.not(createResult, {payload: trytes, root: root, address: address},  "We received a new MaM");
+    })
 
-/*
-test.serial('MAM Fetch ' + MAM_MODE[item].toLowerCase(), async t => {
-    let Channel : MamReader = new MamReader('https://testnet140.tangle.works', root, MAM_MODE[item.toString()], side_key);
-    t.log("We are now fetching " + MAM_MODE[item].toLowerCase())
-    let fetch = await Channel.fetchSingle();
-    t.log(MAM_MODE[item].toLowerCase() + " fetch complete!")
-    t.log("payload: " + fetch + " next root:" + fetch);
-    t.deepEqual(Msg, fetch);
+    //Mam attach
+    test.serial('MAM Attach, mode ' + Case.mode, async t => {
+        let attach = await writerChannel.attach(trytes, address, undefined, 14);
+        attach.forEach(element => {
+            payload += element.signatureMessageFragment;
+        });
+        let test = Decode(payload, Case.sideKey, address);
+        let test2 = Decode(trytes, Case.sideKey, address);
+        t.deepEqual(test.message, test2.message);
+    })
 
-})
-*/
+    //Fetch Single
+    test.serial('MAM singleFetch, mode ' + Case.mode, async t => {
+        let fetch = await fetchSingleReader.fetchSingle();
+        t.deepEqual(Case.msg, fetch);
+    });
+
+    //Fetch All
+    test.serial('MAM fetchAll, mode ' + Case.mode, async t => {
+        let fetch = await fetchAllReader.fetch();
+        
+        //Need all to match
+        t.plan(ExpectedMessages.length);
+        for(let i=0; i < ExpectedMessages.length; i++) {
+            t.deepEqual(fetch[i], ExpectedMessages[i]);
+        }
+    });
+
+    //Listener
+    /*test.serial('MAM Listener,  mode ' + Case.mode, async t => {
+        await delay(ListenerTimeout);
+        let fetch = listenerResult;
+        
+        //Need all to match
+        t.plan(ExpectedMessages.length);
+        for(let i=0; i < ExpectedMessages.length; i++) {
+            t.deepEqual(fetch[i], ExpectedMessages[i]);
+        }
+
+        listener.UnSubscribe(0);
+    });*/
+
+}
+
+async function delay(ms: number) {
+    return new Promise( resolve => setTimeout(resolve, ms) );
 }

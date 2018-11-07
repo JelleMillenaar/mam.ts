@@ -91,7 +91,6 @@ export class MamReader {
                 const { findTransactions } : any = composeAPI( this.provider );
                 await findTransactions({addresses : [address]})
                 .then(async (transactionHashes) => {
-                    console.log("then");
                     //If no hashes are found, we are at the end of the stream
                     if(transactionHashes.length == 0) {
                         consumedAll = true;
@@ -118,7 +117,6 @@ export class MamReader {
                 .catch((error) => {
                     reject(`findTransactions failed with ${error}`);
                 });
-                console.log("Done");
             }
             resolve(messages);
         });
