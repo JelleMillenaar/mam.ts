@@ -48,18 +48,6 @@ export class MamWriter {
         //Set IOTA provider
         this.provider = { provider : provider };
 
-        //Setup Personal Channel
-        this.channel = {
-            side_key: null,
-            mode: MAM_MODE.PUBLIC,
-            next_root: null,
-            security : security,
-            start: 0,
-            count: 1,
-            next_count: 1,
-            index: 0
-        };
-
         //Check for a valid seed
         if(!isTrytesOfExactLength(seed, 81)) {
             console.log('ERROR: Invalid Seed has been submitted. The seed has been replaced with a random seed!');
@@ -68,7 +56,7 @@ export class MamWriter {
         this.seed = seed;
 
         //Set the next root
-        this.channel.next_root = Mam.getMamRoot(this.seed, this.channel);
+        this.changeMode(MAM_MODE.PUBLIC);
     }
 
     /**
@@ -76,15 +64,31 @@ export class MamWriter {
      * @param mode The new channel mode to set the stream to.
      * @param sideKey The sidekey for Restricted mode use. Does nothing for Public and Private mode. 
      */
-    public changeMode(mode : MAM_MODE, sideKey ?: string) : void {
+    public changeMode(mode : MAM_MODE, sideKey ?: string, security : MAM_SECURITY = MAM_SECURITY.LEVEL_1) : void {
         if(mode == MAM_MODE.RESTRICTED && sideKey == undefined) {
             return console.log('You must specify a side key for a restricted channel');
         }
+        
+        //Recreate the channel
+        this.channel = {
+            side_key: null,
+            mode: mode,
+            next_root: null,
+            security : security,
+            start: 0,
+            count: 1,
+            next_count: 1,
+            index: 0
+        };
+
         //Only set sidekey if it isn't undefined (It is allowed to be null, but not undefined)
         if(sideKey) {
             this.channel.side_key = sideKey;
         }
+
+        //Set new stuff
         this.channel.mode = mode;
+        this.channel.next_root = Mam.getMamRoot(this.seed, this.channel);
     }
 
     /**
@@ -219,6 +223,13 @@ export class MamWriter {
     public getNextRoot() : string {
         return Mam.getMamRoot(this.seed, this.channel);
     }  
+
+    /**
+     * @returns The mode of type MAM_MODE of the currently set channel.
+     */
+    public getMode() : MAM_MODE {
+        return this.channel.mode;
+    }
 
     /**
      * Private function that advanced the merkle tree to the next step for the MAM stream. Sets the channel settings appropriatly. 

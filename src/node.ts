@@ -227,8 +227,23 @@ const decodeMessage = (PAYLOAD, SIDE_KEY, ROOT) => {
     let PAYLOAD_trits = string_to_ctrits_trits(PAYLOAD)
     let SIDE_KEY_trits = string_to_ctrits_trits(SIDE_KEY)
     let ROOT_trits = string_to_ctrits_trits(ROOT)
-
-    let parse_result = iota_mam_parse(PAYLOAD_trits, SIDE_KEY_trits, ROOT_trits)
+    let parse_result;
+    try {
+        console.log("Payload Trits:");
+        console.log(PAYLOAD_trits);
+        console.log("Sidekey Trits:");
+        console.log(SIDE_KEY_trits);
+        console.log("Root Trits:");
+        console.log(ROOT_trits);
+        parse_result = iota_mam_parse(PAYLOAD_trits, SIDE_KEY_trits, ROOT_trits);
+        console.log("Result confirm:");
+        console.log(parse_result);
+    } catch (err) {
+        console.log("Result Error:");
+        console.log(parse_result);
+        console.log("Error: " + err);
+    }
+    
     let unmasked_payload_ctrits = IOTA.getValue(parse_result, 'i32')
     let unmasked_payload = ctrits_trits_to_string(unmasked_payload_ctrits)
 

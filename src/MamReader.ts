@@ -11,7 +11,7 @@ import { Transaction } from '@iota/core/typings/types';
  */
 export class MamReader {
     private provider : Partial<Settings>;
-    private sideKey : string | null = null;
+    private sideKey : string | undefined = undefined;
     private mode : MAM_MODE;
     private nextRoot : string;
 
@@ -39,35 +39,53 @@ export class MamReader {
 
     public async fetchSingle () : Promise<string> { //TODO: test, Returning a Promise correct?
         return new Promise<string> ((resolve, reject) => {
+            let ReturnMessage : string = "";
             let address : string = this.nextRoot;
             if( this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
                 address = hash(this.nextRoot);
             }
             //Get the function from the IOTA API
             const { findTransactions } : any = composeAPI( this.provider);
-
             //Get the next set of transactions send to the next address from the mam stream
             findTransactions({addresses : [address]})
             .then((transactionHashes) => {
-                this.txHashesToMessages(transactionHashes)
-                .then((messagesGen) => {
-                    for( let maskedMessage of messagesGen) {
-                        try {
-                            //Unmask the message
-                            const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
-                            this.nextRoot = nextRoot;
-                            //Return payload
-                            resolve( converter.trytesToAscii(message) );
-                        } catch(e) {
-                            reject(`failed to parse: ${e}`);
-                        }
-                        //Resolve here
+                if(transactionHashes.length) {
+                    this.txHashesToMessages(transactionHashes)
+                    .then((messagesGen) => {
+                        for( let maskedMessage of messagesGen) {
+                            let message;
+                            let nextRoot;
+                            let ConvertedMsg;
+                            try {
+                                //Unmask the message
+                                const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
+                                this.nextRoot = nextRoot;
+                                console.log('Correct Msg:');
+                                console.log(message);
+                                //Return payload
+                                ConvertedMsg = converter.trytesToAscii(message);
+                                ReturnMessage = ReturnMessage.concat(ConvertedMsg);
+                            } catch(e) {
+                                console.log(`MaskedMessage:`);
+                                console.log(maskedMessage);
+                                console.log('Message:');
+                                console.log(message);
+                                console.log('Root');
+                                console.log(nextRoot);
+                                console.log('Converted Message');
+                                console.log(ConvertedMsg);
 
-                    }
-                })
-                .catch((error) => {
-                    reject(`txHashesToMessages failed with ${error}`)
-                }); 
+                                reject(`failed to parse: ${e}`);
+                            }
+                        }
+                    })
+                    .catch((error) => {
+                        reject(`txHashesToMessages failed with ${error}`)
+                    }); 
+                } else {
+                    console.log("No messages found");
+                }
+                resolve( ReturnMessage );
             })
             .catch((error) => {
                 reject(`findTransactions failed with ${error}`);
@@ -80,6 +98,7 @@ export class MamReader {
             //Set variables
             const messages : string[] = [];
             let consumedAll : boolean = false;
+            let Counter = 0;
 
             while(!consumedAll) {
                 //Apply channel mode
@@ -95,7 +114,7 @@ export class MamReader {
                     if(transactionHashes.length == 0) {
                         consumedAll = true;
                     } else { //Continue gathering the messages
-                        this.txHashesToMessages(transactionHashes)
+                        await this.txHashesToMessages(transactionHashes)
                         .then((messagesGen) => {
                             for( let maskedMessage of messagesGen) {
                                 try {

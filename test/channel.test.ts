@@ -15,9 +15,9 @@ interface TestCase {
 let ListenerTimeout = 15000;
 let ListenerLoop = ListenerTimeout / 1;
 let TestCases : TestCase[] = [];
-TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PUBLIC, seed : undefined, sideKey : "999", msg: "Hello World!"} );
-TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PRIVATE, seed : undefined, sideKey : "999", msg: "Hello World!"} );
-TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.RESTRICTED, seed : undefined, sideKey : "999", msg: "Hello World!"} );
+//TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PUBLIC, seed : undefined, sideKey : undefined, msg: "Hello World!"} );
+TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PRIVATE, seed : undefined, sideKey : undefined, msg: "Hello World!"} );
+TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.RESTRICTED, seed : undefined, sideKey : "999ABC", msg: "Hello World!"} );
 /**
  * We're looping through the Masked Authenticated messaging mode's: Public, Private & Restricted.
  * For each of these mode's we will test the: Create, Attach & Fetch.
@@ -29,11 +29,11 @@ TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.RESTRICTED, se
  // Filter out the none numbers out of the for loop.
 for( let Case of TestCases){
     // Set the security by comparing the current Mam mode (public = 0, private = 1, restricted = 2).
-    let writerChannel : MamWriter = new MamWriter('https://nodes.thetangle.org:443',undefined, Case.security);
+    let writerChannel : MamWriter = new MamWriter('https://wallet1.iota.town:443',undefined, Case.security);
     writerChannel.changeMode(Case.mode, Case.sideKey);
-
-    let fetchSingleReader : MamReader = new MamReader('https://nodes.thetangle.org:443', writerChannel.getNextRoot());
-    let fetchAllReader : MamReader = new MamReader('https://nodes.thetangle.org:443', writerChannel.getNextRoot());
+    let Firstroot = writerChannel.getNextRoot();
+    let fetchSingleReader : MamReader = new MamReader('https://wallet1.iota.town:443', writerChannel.getNextRoot());
+    let fetchAllReader : MamReader = new MamReader('https://nodes.iota.fm:443', writerChannel.getNextRoot());
     //let listener : MamListener = new MamListener('https://testnet140.tangle.works');
     let listenerResult : string[] = [];
     let listenerCounter = 0;
@@ -74,6 +74,10 @@ for( let Case of TestCases){
         trytes = createResult.payload;
         root = createResult.root;
         address = createResult.address;
+        console.log("Root");
+        console.log(root);
+        console.log("Address:");
+        console.log(address);
 
         //Assertion 1: Compare if the object we receive is not equal to the previous set variables.
         t.not(createResult, {payload: trytes, root: root, address: address},  "We received a new MaM");
@@ -85,15 +89,17 @@ for( let Case of TestCases){
         attach.forEach(element => {
             payload += element.signatureMessageFragment;
         });
-        let test = Decode(payload, Case.sideKey, address);
-        let test2 = Decode(trytes, Case.sideKey, address);
+        let test = Decode(payload, Case.sideKey, root);
+        let test2 = Decode(trytes, Case.sideKey, root);
         t.deepEqual(test.message, test2.message);
     })
 
     //Fetch Single
     test.serial('MAM singleFetch, mode ' + Case.mode, async t => {
         let fetch = await fetchSingleReader.fetchSingle();
-        t.deepEqual(Case.msg, fetch);
+        t.plan(2);
+        t.deepEqual(root, Firstroot);
+        t.deepEqual(fetch, Case.msg );
     });
 
     //Fetch All
