@@ -26,7 +26,7 @@ export class MamReader {
             return console.log('You must specify a side key for a restricted channel');
         }
         if(sideKey) {
-            this.sideKey = sideKey;
+            this.sideKey = converter.asciiToTrytes(sideKey);
         }
         this.mode = mode;
         //Requires root to be set as the user should make a concise decision to keep the root the same, while they switch the mode (unlikely to be the correct call)
@@ -44,10 +44,7 @@ export class MamReader {
             if( this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
                 address = hash(this.nextRoot);
             }
-            console.log("Fetch Root:");
-            console.log(this.nextRoot);
-            console.log("Fetch Address:");
-            console.log(address);
+
             //Get the function from the IOTA API
             const { findTransactions } : any = composeAPI( this.provider);
             //Get the next set of transactions send to the next address from the mam stream
@@ -62,7 +59,7 @@ export class MamReader {
                             let ConvertedMsg;
                             try {
                                 //Unmask the message
-                                const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
+                                const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot, true);
                                 this.nextRoot = nextRoot;
 
                                 //Return payload
@@ -85,8 +82,6 @@ export class MamReader {
                     .catch((error) => {
                         reject(`txHashesToMessages failed with ${error}`)
                     }); 
-                } else {
-                    console.log("No messages found");
                 }
                 resolve( ReturnMessage );
             })
@@ -122,7 +117,7 @@ export class MamReader {
                             for( let maskedMessage of messagesGen) {
                                 try {
                                     //Unmask the message
-                                    const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
+                                    const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot, true);
                                     //Store the result
                                     messages.push( converter.trytesToAscii(message) );
                                     this.nextRoot = nextRoot;

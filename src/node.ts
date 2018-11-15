@@ -239,7 +239,7 @@ const decodeMessage = (PAYLOAD, SIDE_KEY, ROOT) => {
         console.log(ROOT_trits);
         console.log("Result Error:");
         console.log(parse_result);
-        console.log("Error: " + err);
+        console.log("Parse Error: " + err);
     }
     
     let unmasked_payload_ctrits = IOTA.getValue(parse_result, 'i32')

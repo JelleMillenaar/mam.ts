@@ -83,7 +83,7 @@ export class MamWriter {
 
         //Only set sidekey if it isn't undefined (It is allowed to be null, but not undefined)
         if(sideKey) {
-            this.channel.side_key = sideKey;
+            this.channel.side_key = converter.asciiToTrytes(sideKey);
         }
 
         //Set new stuff
@@ -229,6 +229,13 @@ export class MamWriter {
      */
     public getMode() : MAM_MODE {
         return this.channel.mode;
+    }
+
+    /**
+     * @returns The seed of the channel. Don't leak this seed as it gives access to your MAM stream!
+     */
+    public getSeed() : string {
+        return this.seed;
     }
 
     /**

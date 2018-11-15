@@ -4,29 +4,33 @@ import { MAM_MODE, MAM_SECURITY } from '../src/Settings';
 import { Decode } from '../src/Decode';
 import { keyGen } from '../src/KeyGen';
 
+/**
+ * Testcase class creates a controlled test situation that covers a range of potential issues with MAM.ts. Every testcase has isolated, except when the same seed is used.
+ * Internally has the settings of the testcase and the objects that will execute the testcase.
+ */
 class TestCase {
     constructor(
         //Settings
         readonly testName : string,
         readonly security : MAM_SECURITY,
         readonly mode : MAM_MODE,
-        readonly seed : string | undefined,
+        seed : string | undefined,
         readonly sideKey : string | undefined,
         readonly msg : string  
     ) {
         //Create the Writer channel
-        this.writer = new MamWriter('https://pow3.iota.community:443', this.seed, this.security);
+        this.writer = new MamWriter('https://pow1.iota.community:443', seed, this.security);
         this.writer.changeMode(this.mode, this.sideKey);
 
         //Create the fetchers
-        this.singleReader = new MamReader('https://pow3.iota.community:443', this.writer.getNextRoot());
-        this.allReader = new MamReader('https://pow3.iota.community:443', this.writer.getNextRoot());
+        this.singleReader = new MamReader('https://pow2.iota.community:443', this.writer.getNextRoot(), this.mode, this.sideKey);
+        this.allReader = new MamReader('https://pow2.iota.community:443', this.writer.getNextRoot(), this.mode, this.sideKey);
 
         //Check the stack of expected messages
         this.expectedMessages = [];
         for(let i=0; i < TestCases.length; i++) {
             //Add message to the queue
-            if(TestCases[i].seed == this.seed) {
+            if(TestCases[i].writer.getSeed() == this.writer.getSeed()) {
                 this.expectedMessages.push(TestCases[i].msg);
             }
         }
@@ -47,20 +51,18 @@ let Seed = keyGen(81);
 let TestCases : TestCase[] = [];
 
 //Create the test cases
-//TestCases.push( new TestCase( "Public Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World!") );
-//TestCases.push( new TestCase( "Catchup Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World the 2nd!") );
+TestCases.push( new TestCase( "Public Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World!") );
+TestCases.push( new TestCase( "Catchup Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World the 2nd!") );
 TestCases.push( new TestCase( "Private Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PRIVATE, undefined, undefined, "Hello World: Private") );
-//TestCases.push( new TestCase( "Restricted Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.RESTRICTED, undefined, "999ABC", "Hello World: Restricted") );
-/**
- * We're looping through the Masked Authenticated messaging mode's: Public, Private & Restricted.
- * For each of these mode's we will test the: Create, Attach & Fetch.
- */
+TestCases.push( new TestCase( "Restricted Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.RESTRICTED, undefined, "Sidekey", "Hello World: Restricted") );
+TestCases.push( new TestCase( "Private Mode, Security 2 & Long Message", MAM_SECURITY.LEVEL_2, MAM_MODE.PRIVATE, undefined, undefined, "Longer Message".repeat(100)) );
+TestCases.push( new TestCase( "Restricted Mode, Security 3 & Long Key", MAM_SECURITY.LEVEL_3, MAM_MODE.RESTRICTED, undefined, "I don't know where I am".repeat(10), "Restricted Stuff") );
 
-//https://nodes.devnet.thetangle.org:443
-//https://testnet140.tangle.works
 
- // Filter out the none numbers out of the for loop.
+//Loop through all the test cases
 for( let Case of TestCases){
+
+    //All code to later add the test cases for the MamListener
     //let listener : MamListener = new MamListener('https://testnet140.tangle.works');
     let listenerResult : string[] = [];
     let listenerCounter = 0;
@@ -72,7 +74,7 @@ for( let Case of TestCases){
     }, writerChannel.getNextRoot(), Case.mode, Case.sideKey);*/
     
 
-    //Mam create
+    //Test to create a valid transaction
     test.serial('MAM Create: ' + Case.testName, async t => {
         //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
         await Case.writer.catchUpThroughNetwork();
@@ -84,11 +86,7 @@ for( let Case of TestCases){
 
     //Mam attach
     test.serial('MAM Attach: ' + Case.testName, async t => {
-        console.log("NextRoot:");
-        console.log(Case.writer.getNextRoot());
         let attach = await Case.writer.attach(Case.mamResult.payload, Case.mamResult.address, undefined, 14);
-        console.log("Attach:");
-        console.log(attach);
         let payload = "";
         attach.forEach(element => {
             payload += element.signatureMessageFragment;
@@ -125,6 +123,8 @@ for( let Case of TestCases){
             t.deepEqual(fetch[i], Case.expectedMessages[i]);
         }
     });
+
+    delay(30000);
 
     //Listener
     /*test.serial('MAM Listener,  mode ' + Case.mode, async t => {
