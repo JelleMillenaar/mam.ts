@@ -4,23 +4,53 @@ import { MAM_MODE, MAM_SECURITY } from '../src/Settings';
 import { Decode } from '../src/Decode';
 import { keyGen } from '../src/KeyGen';
 
-interface TestCase {
-    security : MAM_SECURITY;
-    mode : MAM_MODE;
-    seed : string | undefined;
-    sideKey : string | undefined;
-    msg : string;
+class TestCase {
+    constructor(
+        //Settings
+        readonly testName : string,
+        readonly security : MAM_SECURITY,
+        readonly mode : MAM_MODE,
+        readonly seed : string | undefined,
+        readonly sideKey : string | undefined,
+        readonly msg : string  
+    ) {
+        //Create the Writer channel
+        this.writer = new MamWriter('https://pow3.iota.community:443', this.seed, this.security);
+        this.writer.changeMode(this.mode, this.sideKey);
+
+        //Create the fetchers
+        this.singleReader = new MamReader('https://pow3.iota.community:443', this.writer.getNextRoot());
+        this.allReader = new MamReader('https://pow3.iota.community:443', this.writer.getNextRoot());
+
+        //Check the stack of expected messages
+        this.expectedMessages = [];
+        for(let i=0; i < TestCases.length; i++) {
+            //Add message to the queue
+            if(TestCases[i].seed == this.seed) {
+                this.expectedMessages.push(TestCases[i].msg);
+            }
+        }
+        //Add ourselves
+        this.expectedMessages.push(this.msg);
+    };
+
+    //Objects
+    public writer : MamWriter;
+    public singleReader : MamReader;
+    public allReader : MamReader;
+    public expectedMessages : string[];
+    public mamResult : {payload : string, root : string, address : string};
 }
 
-//Create the test cases
+//Prepare for the test cases
 let Seed = keyGen(81);
-let ListenerTimeout = 15000;
-let ListenerLoop = ListenerTimeout / 1;
 let TestCases : TestCase[] = [];
-TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PUBLIC, seed : Seed, sideKey : undefined, msg: "Hello World!"} );
-TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PUBLIC, seed : Seed, sideKey : undefined, msg: "Hello World the 2nd!"} );
-//TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PRIVATE, seed : undefined, sideKey : undefined, msg: "Hello World!"} );
-//TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.RESTRICTED, seed : undefined, sideKey : "999ABC", msg: "Hello World!"} );
+
+//Create the test cases
+//TestCases.push( new TestCase( "Public Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World!") );
+//TestCases.push( new TestCase( "Catchup Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World the 2nd!") );
+TestCases.push( new TestCase( "Private Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PRIVATE, undefined, undefined, "Hello World: Private") );
+//TestCases.push( new TestCase( "Restricted Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.RESTRICTED, undefined, "999ABC", "Hello World: Restricted") );
 /**
  * We're looping through the Masked Authenticated messaging mode's: Public, Private & Restricted.
  * For each of these mode's we will test the: Create, Attach & Fetch.
@@ -31,14 +61,6 @@ TestCases.push( {security : MAM_SECURITY.LEVEL_1, mode : MAM_MODE.PUBLIC, seed :
 
  // Filter out the none numbers out of the for loop.
 for( let Case of TestCases){
-    // Set the security by comparing the current Mam mode (public = 0, private = 1, restricted = 2).
-    //let writerChannel : MamWriter = new MamWriter('https://pow3.iota.community:443', Case.seed, Case.security);
-    //writerChannel.changeMode(Case.mode, Case.sideKey);
-    //writerChannel.catchUpThroughNetwork();
-    //let Firstroot = writerChannel.getNextRoot();
-    //console.log("Root:");
-    //console.log(Firstroot);
-    
     //let listener : MamListener = new MamListener('https://testnet140.tangle.works');
     let listenerResult : string[] = [];
     let listenerCounter = 0;
@@ -49,90 +71,58 @@ for( let Case of TestCases){
         console.log(messages);
     }, writerChannel.getNextRoot(), Case.mode, Case.sideKey);*/
     
-    
-    test.serial( 'Pre-test to just initialize variables, because AVA is annoying about it', t=> {
-        //Create the Writer channel
-        let writerChannel : MamWriter = new MamWriter('https://pow3.iota.community:443', Case.seed, Case.security);
-        writerChannel.changeMode(Case.mode, Case.sideKey);
-        writerChannel.catchUpThroughNetwork();
-
-        //Create the fetchers
-        let fetchSingleReader : MamReader = new MamReader('https://pow3.iota.community:443', writerChannel.getNextRoot());
-        let fetchAllReader : MamReader = new MamReader('https://pow3.iota.community:443', writerChannel.getNextRoot());
-
-        //Set the context
-        t.context = {
-            writerChannel : writerChannel,
-            firstRoot : writerChannel.getNextRoot(),
-            fetchSingleReader : fetchSingleReader,
-            fetchAllReader : fetchAllReader
-        };
-    });
-
-    //Expected Messages for the queueing messages
-    let ExpectedMessages : string[] = [];
-    for(let i=0; i < TestCases.length; i++) {
-        //Add message to the queue
-        if(TestCases[i].seed == Case.seed) {
-            ExpectedMessages.push(TestCases[i].msg);
-        }
-
-        //Break if we are the same test
-        if(TestCases[i] == Case) {
-            break;
-        }
-    }
-    
-    //State variables
-    let trytes : string | null = null;
-    let root : string | null = null;
-    let address : string | null = null;
-    let payload : string = "";
-
 
     //Mam create
-    test.serial('MAM Create, mode ' + Case.mode, t => {
+    test.serial('MAM Create: ' + Case.testName, async t => {
         //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
-        let createResult = t.context.writerChannel.create(Case.msg);
+        await Case.writer.catchUpThroughNetwork();
+        Case.mamResult = Case.writer.create(Case.msg);
 
-        //Update state
-        trytes = createResult.payload;
-        root = createResult.root;
-        address = createResult.address;
-
-        //Assertion 1: Compare if the object we receive is not equal to the previous set variables.
-        t.not(createResult, {payload: trytes, root: root, address: address},  "We received a new MaM");
+        //Assertion 1: Compare if the object is made
+        t.not(Case.mamResult, {payload: undefined, root: undefined, address: undefined},  "We received a new MaM");
     })
 
     //Mam attach
-    test.serial('MAM Attach, mode ' + Case.mode, async t => {
-        let attach = await t.context.writerChannel.attach(trytes, address, undefined, 14);
+    test.serial('MAM Attach: ' + Case.testName, async t => {
+        console.log("NextRoot:");
+        console.log(Case.writer.getNextRoot());
+        let attach = await Case.writer.attach(Case.mamResult.payload, Case.mamResult.address, undefined, 14);
+        console.log("Attach:");
+        console.log(attach);
+        let payload = "";
         attach.forEach(element => {
             payload += element.signatureMessageFragment;
         });
-        let test = Decode(payload, Case.sideKey, root);
-        let test2 = Decode(trytes, Case.sideKey, root);
+        let test = Decode(payload, Case.sideKey, Case.mamResult.root);
+        let test2 = Decode(Case.mamResult.payload, Case.sideKey, Case.mamResult.root);
         t.deepEqual(test.message, test2.message);
     })
 
     //Fetch Single
-    test.serial('MAM singleFetch, mode ' + Case.mode, async t => {
-        console.log("Read root:");
-        console.log(t.context.fetchSingleReader.getNextRoot());
-        let fetch = await t.context.fetchSingleReader.fetchSingle();
-        t.plan(2);
-        t.deepEqual(root, t.context.Firstroot);
-        t.deepEqual(fetch, Case.msg );
+    test.serial('MAM singleFetch: ' + Case.testName, async t => {
+        let fetch : string[] = [];
+        let msg : string;
+        
+        do {
+            msg = await Case.singleReader.fetchSingle();
+            if(msg.length > 0) {
+                fetch.push( msg );
+            }
+        } while (msg.length > 0);
+        t.plan(Case.expectedMessages.length);
+        for(let i=0; i < Case.expectedMessages.length; i++) {
+            t.deepEqual(fetch[i], Case.expectedMessages[i]);
+        }
     });
 
     //Fetch All
-    test.serial('MAM fetchAll, mode ' + Case.mode, async t => {
-        let fetch = await t.context.fetchAllReader.fetch();
+    test.serial('MAM fetchAll: ' + Case.testName, async t => {
+        let fetch = await Case.allReader.fetch();
         
         //Need all to match
-        t.plan(ExpectedMessages.length);
-        for(let i=0; i < ExpectedMessages.length; i++) {
-            t.deepEqual(fetch[i], ExpectedMessages[i]);
+        t.plan(Case.expectedMessages.length);
+        for(let i=0; i < Case.expectedMessages.length; i++) {
+            t.deepEqual(fetch[i], Case.expectedMessages[i]);
         }
     });
 
@@ -154,12 +144,4 @@ for( let Case of TestCases){
 
 async function delay(ms: number) {
     return new Promise( resolve => setTimeout(resolve, ms) );
-}
-
-function MAM_Create(t, testCase : TestCase) {
-    //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
-    let createResult = t.context.writerChannel.create(testCase.msg);
-
-    //Assertion 1: Compare if the object we receive is not equal to the previous set variables.
-    t.not(createResult, {payload: createResult.trytes, root: createResult.root, address: createResult.address},  "We received a new MaM");
 }

@@ -44,6 +44,10 @@ export class MamReader {
             if( this.mode == MAM_MODE.PRIVATE || this.mode == MAM_MODE.RESTRICTED) {
                 address = hash(this.nextRoot);
             }
+            console.log("Fetch Root:");
+            console.log(this.nextRoot);
+            console.log("Fetch Address:");
+            console.log(address);
             //Get the function from the IOTA API
             const { findTransactions } : any = composeAPI( this.provider);
             //Get the next set of transactions send to the next address from the mam stream
@@ -60,8 +64,7 @@ export class MamReader {
                                 //Unmask the message
                                 const { message, nextRoot } = Decode(maskedMessage, this.sideKey, this.nextRoot);
                                 this.nextRoot = nextRoot;
-                                console.log('Correct Msg:');
-                                console.log(message);
+
                                 //Return payload
                                 ConvertedMsg = converter.trytesToAscii(message);
                                 ReturnMessage = ReturnMessage.concat(ConvertedMsg);
