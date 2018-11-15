@@ -229,16 +229,14 @@ const decodeMessage = (PAYLOAD, SIDE_KEY, ROOT) => {
     let ROOT_trits = string_to_ctrits_trits(ROOT)
     let parse_result;
     try {
+        parse_result = iota_mam_parse(PAYLOAD_trits, SIDE_KEY_trits, ROOT_trits);
+    } catch (err) {
         console.log("Payload Trits:");
         console.log(PAYLOAD_trits);
         console.log("Sidekey Trits:");
         console.log(SIDE_KEY_trits);
         console.log("Root Trits:");
         console.log(ROOT_trits);
-        parse_result = iota_mam_parse(PAYLOAD_trits, SIDE_KEY_trits, ROOT_trits);
-        console.log("Result confirm:");
-        console.log(parse_result);
-    } catch (err) {
         console.log("Result Error:");
         console.log(parse_result);
         console.log("Error: " + err);

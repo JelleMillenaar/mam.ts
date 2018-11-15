@@ -1,8 +1,8 @@
 
 export enum MAM_MODE {
-    PUBLIC = "public",
-    PRIVATE = "private",
-    RESTRICTED = "restricted" 
+    PUBLIC = 'public',
+    PRIVATE = 'private',
+    RESTRICTED = 'restricted' 
 }
 
 export enum MAM_SECURITY {

@@ -48,9 +48,9 @@ export class MamReader {
             const { findTransactions } : any = composeAPI( this.provider);
             //Get the next set of transactions send to the next address from the mam stream
             findTransactions({addresses : [address]})
-            .then((transactionHashes) => {
+            .then( async (transactionHashes) => {
                 if(transactionHashes.length) {
-                    this.txHashesToMessages(transactionHashes)
+                    await this.txHashesToMessages(transactionHashes)
                     .then((messagesGen) => {
                         for( let maskedMessage of messagesGen) {
                             let message;

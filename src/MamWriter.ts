@@ -158,14 +158,14 @@ export class MamWriter {
             }];
             const { sendTrytes } : any = composeAPI(this.provider);
             const prepareTransfers = createPrepareTransfers();
-            prepareTransfers('9'.repeat(81), transfers, {})
+            prepareTransfers(this.seed, transfers, {})
             .then( (transactionTrytes) => {
                 sendTrytes(transactionTrytes, depth, mwm)
                 .then(transactions => {
                     resolve(<Array<Transaction>>transactions);
                 })
                 .catch(error => {
-                    reject(`sendTrytes failed: ${error}`);
+                    reject(`sendTrytes failed: ${error}; Try to switch nodes, this one might not support PoW`);
                 });
             })
             .catch(error => {
