@@ -124,8 +124,6 @@ for( let Case of TestCases){
         }
     });
 
-    delay(30000);
-
     //Listener
     /*test.serial('MAM Listener,  mode ' + Case.mode, async t => {
         await delay(ListenerTimeout);
