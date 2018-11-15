@@ -44,7 +44,7 @@ export class MamWriter {
      * To keep building on the same stream, the same seed is required. A random UNSECURE seed is generated if no seed is supplied.
      * @param security Security level for the stream. Security 1 is a bit unsecure, but fast and recommended for MAM. Security 2 is secure. Security 3 is for accessive security.
      */
-    constructor(provider: string, seed : string = keyGen(81), security : MAM_SECURITY = MAM_SECURITY.LEVEL_1) {
+    constructor(provider: string, seed : string = keyGen(81), mode : MAM_MODE, sideKey ?: string, security : MAM_SECURITY = MAM_SECURITY.LEVEL_1) {
         //Set IOTA provider
         this.provider = { provider : provider };
 

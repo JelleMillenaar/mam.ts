@@ -19,8 +19,7 @@ class TestCase {
         readonly msg : string  
     ) {
         //Create the Writer channel
-        this.writer = new MamWriter('https://pow1.iota.community:443', seed, this.security);
-        this.writer.changeMode(this.mode, this.sideKey);
+        this.writer = new MamWriter('https://pow1.iota.community:443', seed, this.mode, this.sideKey, this.security);
 
         //Create the fetchers
         this.singleReader = new MamReader('https://pow2.iota.community:443', this.writer.getNextRoot(), this.mode, this.sideKey);

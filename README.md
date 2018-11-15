@@ -1,32 +1,51 @@
-# WORK IN PROGRESS
+# MAM.ts
 
-This is a work in progress of a Typescript version for the Masked Authenticated Messaging protocol for the IOTA Tangle. Documentation is not up-to-date.
+This library is based on the MAM Client JS Library from the IOTA Foundation. It has been converted to Typescript in order to work with the latest IOTA.js library (Typescript). It is coupled to the rust implementation of MAM from the IOTA Foundation.
 
-# MAM Client JS Library
+MAM.ts consists of several classes that handle the MAM logic. 
+1. **MamWriter**: The writer class that publishes MAM transactions to the IOTA network. 
+2. **MamReader**: A reader class that reads MAM transactions from a stream from a given root. Can read per transaction or can catch up on the stream. 
+3. **MamListener**: (Under development) A reader class that checks for new MAM transactions at a set interval. 
+4. **ZMQListener**: (Future feature) A reader class that has a ZMQ stream connection with a node and listens to all transactions and calls a callback when a MAM transaction is found. 
 
+MAM.ts is still under development and could contain bugs. More features are still planned and can be found in the future updates section. MAM.ts plans to support future updates to Masked Authenticated Messaging from the IOTA Foundation like MAM+ / MAMv2. 
 
+## Masked Authenticated Messaging
 
 It is possible to publish transactions to the Tangle that contain only messages, with no value. This introduces many possibilities for data integrity and communication, but comes with the caveat that message-only signatures are not checked. What we introduce is a method of symmetric-key encrypted, signed data that takes advantage of merkle-tree winternitz signatures for extended public key usability, that can be found trivially by those who know to look for it.
 
 This is wrapper library for the WASM/ASM.js output of the [IOTA Bindings repository](https://github.com/iotaledger/iota-bindings). For a more in depth look at how Masked Authenticated Messaging works please check out the [Overview](https://github.com/l3wi/mam.client.js/blob/master/docs/overview.md)
 
-> This is a work in progress. The library is usable, however it is still evolving and may have some breaking changes in the future. These will most likely be minor, in addition to extending functionality.
-
 ## Getting Started
 
-After downloading the `mam.client.js` file for your project, importing the library will provide access to the functions described below.
+TODO: NPM install instruction when published
 
-For a simple user experience you are advised to call the `init()` function to enable to tracking of state in your channels.When calling `init()` you should also pass in your initialised IOTA library.  This will provide access to some extra functionality including attaching, fetching and subscribing.
+## MamWriter
 
+### `constructor`
 
-Note: When using with React-Native use the rn-nodify package to shim the library to ensure it works correctly
-To import the library, use either require("mam.client.js") or import * as Mam from 'mam.client.js'
+Creates the MamWriter and prepares the object for creation MAM transaction. If the seed is reused, remember to call a catchUp function before starting to publish transactions!
 
-> *Please see example/index.js for a working example*
+#### Input
 
-## Basic Usage
+```
+ constructor(provider: string, seed : string, mode : MAM_MODE, sideKey : string, security : MAM_SECURITY)
+```
 
-### `init`
+1. **provider**: `String` URL:port to the IOTA node that will receive the transactions. Should support PoW.
+2. **seed**: `String` Trinary string of 81 characters that makes you owner of the channel. *Defaults to a unsecure random seed if no or an incorrect seed is given.*
+3. **mode**: `MAM_MODE` Enumerator for the MAM mode: public, private or restricted. Restricted mode requires a sideKey. *Defaults to public.*
+4. **sideKey**: `String` Plaintext sideKey used for MAM_MODE.RESTRICTED. Ignored otherwise. *Default is undefined.*
+5. **security**: `MAM_SECURITY` Enumerator for the MAM security: 1, 2 or 3. The security of the transactions, since no value is transfered 1 is recommended, otherwise 2, but 3 is generally considered overkill. *Defaults to 1.*
+
+#### Return
+
+The MamWriter object.
+
+------
+
+###
+
 
 This initialises the state. This will return a state object that tracks the progress of your stream and streams you are following
 
