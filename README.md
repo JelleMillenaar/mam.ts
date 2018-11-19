@@ -24,7 +24,7 @@ TODO: NPM install instruction when published
 
 ### `constructor`
 
-Creates the MamWriter and prepares the object for creation MAM transaction. If the seed is reused, remember to call a catchUp function before starting to publish transactions!
+Creates the MamWriter and prepares the object for creation MAM transaction. If the seed is reused, remember to call a catchUp function before starting to publish transactions! This function automatically calls changeMode function with the provided settings.
 
 #### Input
 
@@ -36,15 +36,53 @@ Creates the MamWriter and prepares the object for creation MAM transaction. If t
 2. **seed**: `String` Trinary string of 81 characters that makes you owner of the channel. *Defaults to a unsecure random seed if no or an incorrect seed is given.*
 3. **mode**: `MAM_MODE` Enumerator for the MAM mode: public, private or restricted. Restricted mode requires a sideKey. *Defaults to public.*
 4. **sideKey**: `String` Plaintext sideKey used for MAM_MODE.RESTRICTED. Ignored otherwise. *Default is undefined.*
-5. **security**: `MAM_SECURITY` Enumerator for the MAM security: 1, 2 or 3. The security of the transactions, since no value is transfered 1 is recommended, otherwise 2, but 3 is generally considered overkill. *Defaults to 1.*
+5. **security**: `MAM_SECURITY` Enumerator for the MAM security: 1, 2 or 3. The security of the transactions, since no value is transfered 1 is recommended, otherwise 2, but 3 is generally considered overkill. *Defaults to MAM_SECURITY.LEVEL_1.*
 
 #### Return
 
-The MamWriter object.
+The created MamWriter object.
 
 ------
 
-###
+### `changeMode`
+
+Changes the settings of the MamWriter. This function is also called y the constructor with the provided settings. When the mode is changed it also switches stream. If the same seed & mode combination has been used before, it is recommended to run a CatchUp function before Attaching any new messages to make sure they are correctly appended on the end of the stream. 
+
+#### Input
+
+public changeMode(mode : MAM_MODE, sideKey ?: string, security : MAM_SECURITY)
+
+1. **mode**: `MAM_MODE` Enumerator for the MAM mode: public, private or restricted. Restricted mode requires a sideKey.
+2. **sideKey**: `String` Plaintext sideKey used for MAM_MODE.RESTRICTED. Ignored otherwise. *Default is undefined.*
+3. **security**: `MAM_SECURITY` Enumerator for the MAM security: 1, 2 or 3. The security of the transactions, since no value is transfered 1 is recommended, otherwise 2, but 3 is generally considered overkill. *Defaults to MAM_SECURITY.LEVEL_1.*
+
+#### Return
+
+void
+
+------
+
+/**
+     * Useful to call after a MamWriter is created and the input seed has been previously used. 
+     * This function makes sure that the next message that is added to the MAM stream is appended at the end of the MAM stream.
+     * It is required that the entire MAM stream of this seed + mode is avaliable by the given node.
+     * @returns An array of the previous roots of all messages used in the stream so far.
+     */
+    public async catchUpThroughNetwork() : Promise<string[]>
+
+### `catchUpThroughNetwork` - async
+
+Updates the MamWriter to make sure it adds the new MAM stream transactions at the end of the stream. This function iterates through the roots of the channel until an unused root is found. The previous MAM transactions need to be avaliable on the connect node (not snapshotted away), otherwise the end of the stream cannot be found. It is recommended to run this function after the creation of a MAMWriter while reusing a seed, or after calling changeMode when reusing the seed. 
+
+#### Input
+
+public async catchUpThroughNetwork()
+
+#### Return
+
+1. **Promise<string[]>** An array of all the previously used roots of the MAM stream using the current settings. All these roots are no longer used for writing, but can be used for reading.
+
+------
 
 
 This initialises the state. This will return a state object that tracks the progress of your stream and streams you are following
