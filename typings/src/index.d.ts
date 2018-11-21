@@ -1,4 +1,6 @@
-import { MamReader } from './MamReader';
-import { MamWriter } from './MamWriter';
-import { MamListener } from './MamListener';
-export { MamReader, MamWriter, MamListener };
+/** @module mam */
+export { MamWriter } from './MamWriter';
+export { MamReader } from './MamReader';
+export { MAM_MODE, MAM_SECURITY } from './Settings';
+export { keyGen } from './KeyGen';
+export { Decode } from './Decode';

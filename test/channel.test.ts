@@ -1,5 +1,5 @@
 import test from 'ava'
-import { MamWriter, MamReader, MamListener } from '../src/index';
+import { MamWriter, MamReader } from '../src/index';
 import { MAM_MODE, MAM_SECURITY } from '../src/Settings';
 import { Decode } from '../src/Decode';
 import { keyGen } from '../src/KeyGen';
