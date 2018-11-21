@@ -1,8 +1,8 @@
 {
     "name": "mam.ts",
     "private": false,
-    "version": "0.1.1",
-    "main": "out/mam/src/index.js",
+    "version": "0.1.2",
+    "main": "out/src/index.js",
     "typings": "typings/src",
     "scripts": {
         "prepare": "tsc",
