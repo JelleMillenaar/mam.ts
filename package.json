@@ -9,7 +9,7 @@
         "test": "tsc && nyc ava",
         "test-ci": "nyc ava",
         "format": "prettier",
-        "docs": "tsc && jsdoc2md --no-cache --plugin dmd-clear -t README_tpl.hbs --files './out/**/*.js' > README.md"
+        "docs": "tsc && jsdoc2md --no-cache --plugin dmd-clear -t README_tpl.hbs --files './out/*.js' > README.md"
     },
     "contributors": [
         "Jelle Millenaar <jmillenaar@vxcompany.com> (vxcompany.com)"
