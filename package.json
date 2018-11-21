@@ -6,14 +6,26 @@
     "typings": "typings/src",
     "scripts": {
         "prepare": "tsc",
-        "test": "tsc && nyc ava",
-        "test-ci": "nyc ava",
-        "format": "prettier",
+        "test": "tsc && ava",
+        "test-ci": "ava",
         "docs": "tsc && jsdoc2md --no-cache --plugin dmd-clear -t README_tpl.hbs --files './out/*.js' > README.md"
     },
     "contributors": [
-        "Jelle Millenaar <jmillenaar@vxcompany.com> (vxcompany.com)"
+        "Jelle Millenaar <jmillenaar@vxcompany.com> (https://www.linkedin.com/in/jellefm/)",
+        "Nicky Joosen <njoosen@vxcompany.com> (https://www.linkedin.com/in/nicky-joosen-17144270/)"
     ],
+    "keywords": [
+        "IOTA",
+        "Tangle",
+        "MAM",
+        "Masked Authenticated Messaging",
+        "Typescript"
+    ],
+    "license": "GPL-3.0",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/JelleMillenaar/mam.ts"
+    },
     "ava": {
         "files": [
             "out/test/*.test.js"
@@ -22,26 +34,6 @@
         "failWithoutAssertions": false,
         "compileEnhancements": false,
         "verbose": true
-    },
-    "nyc": {
-        "watermarks": {
-            "functions": [
-                80,
-                95
-            ],
-            "branches": [
-                80,
-                95
-            ],
-            "statements": [
-                80,
-                95
-            ]
-        },
-        "include": [
-            "out/src/*.js",
-            "out/test/*.js"
-        ]
     },
     "dependencies": {
         "@iota/converter": "^1.0.0-beta.5",
@@ -52,7 +44,6 @@
     },
     "devDependencies": {
         "ava": "^0.25.0",
-        "nyc": "^12.0.2",
         "@types/node": "^10.11.7",
         "typescript": "^3.1.3"
     }
