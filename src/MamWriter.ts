@@ -56,7 +56,7 @@ export class MamWriter {
         this.seed = seed;
 
         //Set the next root
-        this.changeMode(MAM_MODE.PUBLIC);
+        this.changeMode(mode);
     }
 
     /**
