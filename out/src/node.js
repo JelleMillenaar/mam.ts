@@ -105,7 +105,7 @@ var getMamAddress = function (KEY, ROOT) {
     return ctrits_trits_to_string(address);
 };
 var createMessage = function (SEED, MESSAGE, SIDE_KEY, CHANNEL) {
-    if (!SIDE_KEY)
+    if (!SIDE_KEY || CHANNEL.mode === "public")
         SIDE_KEY = '999999999999999999999999999999999999999999999999999999999999999999999999999999999';
     // MAM settings
     var SEED_trits = string_to_ctrits_trits(SEED);
