@@ -45,7 +45,7 @@ var Settings_1 = require("./Settings");
 /**
  * The Masked Authenticated Messaging (MAM) Writer class is a simplistic class that allows easy MAM use.
  * It has an internal state that handles most complicated logic, which is a lot easier compared to other MAM implementations.
- * A MamReader instance can track the succes of the MamWriter functions.
+ * A MamReader instance can track the success of the MamWriter functions.
  * It is recommended to use createAndAttach as the function handles all logic for the user.
  *
  * Masked Authenticated Messaging are 0-value IOTA transaction that contain data messages.
@@ -61,6 +61,8 @@ var MamWriter = /** @class */ (function () {
      * @param provider The node URL that connects to the IOTA network to send the requests to.
      * @param seed The seed for the MAM stream, should be kept private. String should contain 81 valid Tryte characters (A-Z+9), otherwise the seed is replaced with a random seed.
      * To keep building on the same stream, the same seed is required. A random UNSECURE seed is generated if no seed is supplied.
+     * @param mode
+     * @param sideKey
      * @param security Security level for the stream. Security 1 is a bit unsecure, but fast and recommended for MAM. Security 2 is secure. Security 3 is for accessive security.
      */
     function MamWriter(provider, seed, mode, sideKey, security) {
@@ -109,16 +111,17 @@ var MamWriter = /** @class */ (function () {
     /**
      *
      * @param message
+     * @param tag optional tag for the transaction(s)
      * @returns The result of the Attach function.
      */
-    MamWriter.prototype.createAndAttach = function (message) {
+    MamWriter.prototype.createAndAttach = function (message, tag) {
         return __awaiter(this, void 0, void 0, function () {
             var Result, Result2;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         Result = this.create(message);
-                        return [4 /*yield*/, this.attach(Result.payload, Result.address)];
+                        return [4 /*yield*/, this.attach(Result.payload, Result.address, undefined, undefined, tag)];
                     case 1:
                         Result2 = _a.sent();
                         return [2 /*return*/, Result2];
@@ -168,11 +171,13 @@ var MamWriter = /** @class */ (function () {
      * @param address The address where the MAM transaction is sent to.
      * @param depth The depth that is used for Tip selection by the node.
      * @param mwm The Proof-of-Work difficulty used. Recommended to use 12 on testnetwork and 14 on the mainnet. (Might be changed later)
+     * @param tag an optional Tag that can be added to the transaction
      * @returns An array of transactions that have been send to the network.
      */
-    MamWriter.prototype.attach = function (payload, address, depth, mwm) {
+    MamWriter.prototype.attach = function (payload, address, depth, mwm, tag) {
         if (depth === void 0) { depth = 6; }
         if (mwm === void 0) { mwm = 14; }
+        if (tag === void 0) { tag = undefined; }
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
             return __generator(this, function (_a) {
@@ -181,7 +186,8 @@ var MamWriter = /** @class */ (function () {
                         transfers = [{
                                 address: address,
                                 value: 0,
-                                message: payload
+                                message: payload,
+                                tag: tag
                             }];
                         var sendTrytes = core_1.composeAPI(_this.provider).sendTrytes;
                         var prepareTransfers = core_1.createPrepareTransfers();
@@ -237,7 +243,7 @@ var MamWriter = /** @class */ (function () {
                                             else {
                                                 //Add the root
                                                 previousRootes.push(_this.channel.next_root);
-                                                //Find the next root - Straight up stolen from node.ts atm. 
+                                                //Find the next root - Straight up stolen from node.ts atm.
                                                 var next_root_merkle = node_1.MamDetails.iota_merkle_create(node_1.MamDetails.string_to_ctrits_trits(_this.seed), _this.channel.start + _this.channel.count, _this.channel.next_count, _this.channel.security);
                                                 var next_root = node_1.MamDetails.iota_merkle_slice(next_root_merkle);
                                                 _this.AdvanceChannel(node_1.MamDetails.ctrits_trits_to_string(next_root));

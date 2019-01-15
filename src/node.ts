@@ -151,7 +151,7 @@ const getMamAddress = (KEY, ROOT) => {
 }
 
 const createMessage = (SEED, MESSAGE, SIDE_KEY, CHANNEL) => {
-    if (!SIDE_KEY)
+    if (!SIDE_KEY || CHANNEL.mode === "public")
         SIDE_KEY = '999999999999999999999999999999999999999999999999999999999999999999999999999999999'
 
     // MAM settings
