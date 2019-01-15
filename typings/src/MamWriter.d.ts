@@ -3,7 +3,7 @@ import { MAM_MODE, MAM_SECURITY } from './Settings';
 /**
  * The Masked Authenticated Messaging (MAM) Writer class is a simplistic class that allows easy MAM use.
  * It has an internal state that handles most complicated logic, which is a lot easier compared to other MAM implementations.
- * A MamReader instance can track the succes of the MamWriter functions.
+ * A MamReader instance can track the success of the MamWriter functions.
  * It is recommended to use createAndAttach as the function handles all logic for the user.
  *
  * Masked Authenticated Messaging are 0-value IOTA transaction that contain data messages.
@@ -22,6 +22,8 @@ export declare class MamWriter {
      * @param provider The node URL that connects to the IOTA network to send the requests to.
      * @param seed The seed for the MAM stream, should be kept private. String should contain 81 valid Tryte characters (A-Z+9), otherwise the seed is replaced with a random seed.
      * To keep building on the same stream, the same seed is required. A random UNSECURE seed is generated if no seed is supplied.
+     * @param mode
+     * @param sideKey
      * @param security Security level for the stream. Security 1 is a bit unsecure, but fast and recommended for MAM. Security 2 is secure. Security 3 is for accessive security.
      */
     constructor(provider: string, seed: string, mode: MAM_MODE, sideKey?: string, security?: MAM_SECURITY);
@@ -34,9 +36,10 @@ export declare class MamWriter {
     /**
      *
      * @param message
+     * @param tag optional tag for the transaction(s)
      * @returns The result of the Attach function.
      */
-    createAndAttach(message: string): Promise<Transaction[]>;
+    createAndAttach(message: string, tag?: string): Promise<Transaction[]>;
     /**
      * Prepares the message by converting it into a valid payload. It also generates the root and address.
      * The payload can be attached to the IOTA network later through the Attach function.
@@ -59,9 +62,10 @@ export declare class MamWriter {
      * @param address The address where the MAM transaction is sent to.
      * @param depth The depth that is used for Tip selection by the node.
      * @param mwm The Proof-of-Work difficulty used. Recommended to use 12 on testnetwork and 14 on the mainnet. (Might be changed later)
+     * @param tag an optional Tag that can be added to the transaction
      * @returns An array of transactions that have been send to the network.
      */
-    attach(payload: string, address: string, depth?: number, mwm?: number): Promise<Transaction[]>;
+    attach(payload: string, address: string, depth?: number, mwm?: number, tag?: string): Promise<Transaction[]>;
     /**
      * Useful to call after a MamWriter is created and the input seed has been previously used.
      * This function makes sure that the next message that is added to the MAM stream is appended at the end of the MAM stream.
