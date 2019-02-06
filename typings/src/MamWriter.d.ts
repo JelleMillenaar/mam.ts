@@ -17,6 +17,7 @@ export declare class MamWriter {
     private provider;
     private channel;
     private seed;
+    private tag;
     /**
      * Creates a MamWriter channel for the seed. It defaults to a UNSECURE random seed with minimum security 1 and the Public channel mode.
      * @param provider The node URL that connects to the IOTA network to send the requests to.
@@ -57,7 +58,7 @@ export declare class MamWriter {
      * Attaches a previously prepared payload to the IOTA network as part of the MAM stream.
      * @param payload A trinary encoded masked payload created by the create function.
      * @param address The address where the MAM transaction is sent to.
-     * @param depth The depth that is used for Tip selection by the node.
+     * @param depth The depth that is used for Tip selection by the node. A depth of 3 is recommended.
      * @param mwm The Proof-of-Work difficulty used. Recommended to use 12 on testnetwork and 14 on the mainnet. (Might be changed later)
      * @returns An array of transactions that have been send to the network.
      */
@@ -70,6 +71,12 @@ export declare class MamWriter {
      */
     catchUpThroughNetwork(): Promise<string[]>;
     /**
+     * Sets the tag for every mam transaction that will be published afterwards.
+     * The tag can be translated to a maximum of 27 trytes and will be pruned if too long.
+     * @param tag The tag in plaintext. Only accepts trytes.
+     */
+    setTag(tag: string | undefined): void;
+    /**
      * @returns The root of the next message. Can be used to later retrieve the message with the MamReader.
      */
     getNextRoot(): string;
@@ -81,6 +88,10 @@ export declare class MamWriter {
      * @returns The seed of the channel. Don't leak this seed as it gives access to your MAM stream!
      */
     getSeed(): string;
+    /**
+     * @returns The currently set tag that is posted with new MAM tx's.
+     */
+    getTag(): string;
     /**
      * Private function that advanced the merkle tree to the next step for the MAM stream. Sets the channel settings appropriatly.
      * @param root The root of the next MAM transaction.

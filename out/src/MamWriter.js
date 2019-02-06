@@ -74,6 +74,7 @@ var MamWriter = /** @class */ (function () {
             seed = KeyGen_1.keyGen(81);
         }
         this.seed = seed;
+        this.tag = undefined;
         //Set the next root
         this.changeMode(mode, sideKey, security);
     }
@@ -144,7 +145,8 @@ var MamWriter = /** @class */ (function () {
         if (!inputTrinary) {
             TrytesMsg = converter.asciiToTrytes(message);
         }
-        var mam = node_1.Mam.createMessage(this.seed, TrytesMsg, this.channel.side_key, this.channel); //TODO: This could return an interface format
+        //Only send the side_key when MAM_MODE is not Public
+        var mam = node_1.Mam.createMessage(this.seed, TrytesMsg, (this.channel.mode != Settings_1.MAM_MODE.PUBLIC) ? this.channel.side_key : undefined, this.channel);
         //If the tree is exhausted
         this.AdvanceChannel(mam.next_root);
         //Generate attachment address
@@ -166,12 +168,12 @@ var MamWriter = /** @class */ (function () {
      * Attaches a previously prepared payload to the IOTA network as part of the MAM stream.
      * @param payload A trinary encoded masked payload created by the create function.
      * @param address The address where the MAM transaction is sent to.
-     * @param depth The depth that is used for Tip selection by the node.
+     * @param depth The depth that is used for Tip selection by the node. A depth of 3 is recommended.
      * @param mwm The Proof-of-Work difficulty used. Recommended to use 12 on testnetwork and 14 on the mainnet. (Might be changed later)
      * @returns An array of transactions that have been send to the network.
      */
     MamWriter.prototype.attach = function (payload, address, depth, mwm) {
-        if (depth === void 0) { depth = 6; }
+        if (depth === void 0) { depth = 3; }
         if (mwm === void 0) { mwm = 14; }
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
@@ -181,7 +183,8 @@ var MamWriter = /** @class */ (function () {
                         transfers = [{
                                 address: address,
                                 value: 0,
-                                message: payload
+                                message: payload,
+                                tag: _this.tag
                             }];
                         var sendTrytes = core_1.composeAPI(_this.provider).sendTrytes;
                         var prepareTransfers = core_1.createPrepareTransfers();
@@ -259,6 +262,30 @@ var MamWriter = /** @class */ (function () {
         });
     };
     /**
+     * Sets the tag for every mam transaction that will be published afterwards.
+     * The tag can be translated to a maximum of 27 trytes and will be pruned if too long.
+     * @param tag The tag in plaintext. Only accepts trytes.
+     */
+    MamWriter.prototype.setTag = function (tag) {
+        //If statement is too handle undefined as argument
+        if (tag) {
+            //Check for valid Trytes
+            if (validators_1.isTrytes(tag)) {
+                //Trim to correct length
+                if (tag.length > 27) {
+                    console.log("Warning Tag is too long");
+                    tag = tag.slice(0, 26);
+                }
+                //Append to correct length
+                tag += "9".repeat(27 - tag.length);
+                this.tag = tag;
+            }
+            else {
+                console.log("Warning, tag doesn't consist of trytes");
+            }
+        }
+    };
+    /**
      * @returns The root of the next message. Can be used to later retrieve the message with the MamReader.
      */
     MamWriter.prototype.getNextRoot = function () {
@@ -275,6 +302,12 @@ var MamWriter = /** @class */ (function () {
      */
     MamWriter.prototype.getSeed = function () {
         return this.seed;
+    };
+    /**
+     * @returns The currently set tag that is posted with new MAM tx's.
+     */
+    MamWriter.prototype.getTag = function () {
+        return this.tag;
     };
     /**
      * Private function that advanced the merkle tree to the next step for the MAM stream. Sets the channel settings appropriatly.

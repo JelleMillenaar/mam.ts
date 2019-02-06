@@ -1,6 +1,6 @@
 import { Settings } from '@iota/http-client/typings/http-client/src/settings'; //Added for Provider typing
 import { keyGen } from './KeyGen';
-import { isTrytesOfExactLength } from '@iota/validators';
+import { isTrytesOfExactLength, isTrytes } from '@iota/validators';
 import { Mam, MamDetails } from './node';
 import * as converter from '@iota/converter';
 import { Transaction, Transfer } from '@iota/core/typings/types';
@@ -36,6 +36,7 @@ export class MamWriter {
     private provider : Partial<Settings>;
     private channel : channel;
     private seed : string;
+    private tag : string;
 
     /**
      * Creates a MamWriter channel for the seed. It defaults to a UNSECURE random seed with minimum security 1 and the Public channel mode.
@@ -54,6 +55,7 @@ export class MamWriter {
             seed = keyGen(81);
         }
         this.seed = seed;
+        this.tag = undefined;
 
         //Set the next root
         this.changeMode(mode, sideKey, security);
@@ -119,7 +121,8 @@ export class MamWriter {
         if(!inputTrinary) {
             TrytesMsg = converter.asciiToTrytes(message);
         }
-        const mam = Mam.createMessage(this.seed, TrytesMsg, this.channel.side_key, this.channel); //TODO: This could return an interface format
+        //Only send the side_key when MAM_MODE is not Public
+        const mam = Mam.createMessage(this.seed, TrytesMsg, (this.channel.mode != MAM_MODE.PUBLIC)?this.channel.side_key:undefined, this.channel);
 
         //If the tree is exhausted
         this.AdvanceChannel(mam.next_root);
@@ -144,17 +147,18 @@ export class MamWriter {
      * Attaches a previously prepared payload to the IOTA network as part of the MAM stream.
      * @param payload A trinary encoded masked payload created by the create function.
      * @param address The address where the MAM transaction is sent to.
-     * @param depth The depth that is used for Tip selection by the node.
+     * @param depth The depth that is used for Tip selection by the node. A depth of 3 is recommended.
      * @param mwm The Proof-of-Work difficulty used. Recommended to use 12 on testnetwork and 14 on the mainnet. (Might be changed later)
      * @returns An array of transactions that have been send to the network. 
      */
-    public async attach(payload : string, address : string, depth : number = 6, mwm : number = 14) : Promise<Transaction[]> {
+    public async attach(payload : string, address : string, depth : number = 3, mwm : number = 14) : Promise<Transaction[]> {
         return new Promise<Transaction[]> ( (resolve, reject) => {
             let transfers : Transfer[];
             transfers = [ {
                 address : address,
                 value : 0,
-                message : payload
+                message : payload,
+                tag : this.tag
             }];
             const { sendTrytes } : any = composeAPI(this.provider);
             const prepareTransfers = createPrepareTransfers();
@@ -218,6 +222,30 @@ export class MamWriter {
     }
 
     /**
+     * Sets the tag for every mam transaction that will be published afterwards. 
+     * The tag can be translated to a maximum of 27 trytes and will be pruned if too long.
+     * @param tag The tag in plaintext. Only accepts trytes. 
+     */
+    public setTag(tag : string | undefined ) {
+        //If statement is too handle undefined as argument
+        if(tag) {  
+            //Check for valid Trytes
+            if(isTrytes(tag)) {
+                //Trim to correct length
+                if(tag.length > 27) {
+                    console.log("Warning Tag is too long");
+                    tag = tag.slice(0,26);
+                }
+                //Append to correct length
+                tag += "9".repeat(27-tag.length);
+                this.tag = tag;
+            } else {
+                console.log("Warning, tag doesn't consist of trytes");
+            }
+        }
+    }
+
+    /**
      * @returns The root of the next message. Can be used to later retrieve the message with the MamReader.
      */
     public getNextRoot() : string {
@@ -236,6 +264,13 @@ export class MamWriter {
      */
     public getSeed() : string {
         return this.seed;
+    }
+
+    /**
+     * @returns The currently set tag that is posted with new MAM tx's. 
+     */
+    public getTag() : string {
+        return this.tag;
     }
 
     /**

@@ -16,14 +16,16 @@ class TestCase {
         readonly mode : MAM_MODE,
         seed : string | undefined,
         readonly sideKey : string | undefined,
-        readonly msg : string  
+        readonly msg : string,
+        readonly tag : string | undefined  
     ) {
         //Create the Writer channel
-        this.writer = new MamWriter('https://pow1.iota.community:443', seed, this.mode, this.sideKey, this.security);
+        this.writer = new MamWriter('https://nodes.thetangle.org:443', seed, this.mode, this.sideKey, this.security);
+        this.writer.setTag(this.tag);
 
         //Create the fetchers
-        this.singleReader = new MamReader('https://pow2.iota.community:443', this.writer.getNextRoot(), this.mode, this.sideKey);
-        this.allReader = new MamReader('https://pow2.iota.community:443', this.writer.getNextRoot(), this.mode, this.sideKey);
+        this.singleReader = new MamReader('https://nodes.thetangle.org:443', this.writer.getNextRoot(), this.mode, this.sideKey);
+        this.allReader = new MamReader('https://nodes.thetangle.org:443', this.writer.getNextRoot(), this.mode, this.sideKey);
 
         //Check the stack of expected messages
         this.expectedMessages = [];
@@ -50,12 +52,12 @@ let Seed = keyGen(81);
 let TestCases : TestCase[] = [];
 
 //Create the test cases
-TestCases.push( new TestCase( "Public Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World!") );
-TestCases.push( new TestCase( "Catchup Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World the 2nd!") );
-TestCases.push( new TestCase( "Private Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PRIVATE, undefined, undefined, "Hello World: Private") );
-TestCases.push( new TestCase( "Restricted Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.RESTRICTED, undefined, "Sidekey", "Hello World: Restricted") );
-TestCases.push( new TestCase( "Private Mode, Security 2 & Long Message", MAM_SECURITY.LEVEL_2, MAM_MODE.PRIVATE, undefined, undefined, "Longer Message".repeat(100)) );
-TestCases.push( new TestCase( "Restricted Mode, Security 3 & Long Key", MAM_SECURITY.LEVEL_3, MAM_MODE.RESTRICTED, undefined, "I don't know where I am".repeat(10), "Restricted Stuff") );
+TestCases.push( new TestCase( "Public Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World!", undefined) );
+TestCases.push( new TestCase( "Catchup Mode & Bad Tag", MAM_SECURITY.LEVEL_1, MAM_MODE.PUBLIC, Seed, undefined, "Hello World the 2nd!", "BadTag2") );
+TestCases.push( new TestCase( "Private Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.PRIVATE, undefined, undefined, "Hello World: Private", undefined) );
+TestCases.push( new TestCase( "Restricted Mode", MAM_SECURITY.LEVEL_1, MAM_MODE.RESTRICTED, undefined, "Sidekey", "Hello World: Restricted", undefined) );
+TestCases.push( new TestCase( "Private Mode, Security 2, Long Message & Tag", MAM_SECURITY.LEVEL_2, MAM_MODE.PRIVATE, undefined, undefined, "Longer Message".repeat(100), "MAM9TS9TEST"));
+TestCases.push( new TestCase( "Restricted Mode, Security 3, Long Key & Long Tag", MAM_SECURITY.LEVEL_3, MAM_MODE.RESTRICTED, undefined, "I don't know where I am".repeat(10), "Restricted Stuff", "MAM9TS9TEST".repeat(6)) );
 
 
 //Loop through all the test cases
