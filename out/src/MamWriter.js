@@ -35,6 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var http_client_1 = require("@iota/http-client"); //Added for Provider typing
 var KeyGen_1 = require("./KeyGen");
 var validators_1 = require("@iota/validators");
 var node_1 = require("./node");
@@ -42,6 +43,7 @@ var converter = require("@iota/converter");
 var core_1 = require("@iota/core");
 var hash_1 = require("./hash");
 var Settings_1 = require("./Settings");
+var PwrSrv_1 = require("./PwrSrv");
 /**
  * The Masked Authenticated Messaging (MAM) Writer class is a simplistic class that allows easy MAM use.
  * It has an internal state that handles most complicated logic, which is a lot easier compared to other MAM implementations.
@@ -67,7 +69,7 @@ var MamWriter = /** @class */ (function () {
         if (seed === void 0) { seed = KeyGen_1.keyGen(81); }
         if (security === void 0) { security = Settings_1.MAM_SECURITY.LEVEL_1; }
         //Set IOTA provider
-        this.provider = { provider: provider };
+        this.provider = http_client_1.createHttpClient({ provider: provider });
         //Check for a valid seed
         if (!validators_1.isTrytesOfExactLength(seed, 81)) {
             console.log('ERROR: Invalid Seed has been submitted. The seed has been replaced with a random seed!');
@@ -75,6 +77,7 @@ var MamWriter = /** @class */ (function () {
         }
         this.seed = seed;
         this.tag = undefined;
+        this.EnablePowSvr(false); //Set default Attach function
         //Set the next root
         this.changeMode(mode, sideKey, security);
     }
@@ -186,12 +189,27 @@ var MamWriter = /** @class */ (function () {
                                 message: payload,
                                 tag: _this.tag
                             }];
-                        var sendTrytes = core_1.composeAPI(_this.provider).sendTrytes;
+                        var sendTrytes = core_1.createSendTrytes(_this.provider, _this.attachFunction);
+                        var getTransactionsToApprove = core_1.createGetTransactionsToApprove(_this.provider);
+                        var storeAndBroadcast = core_1.createStoreAndBroadcast(_this.provider);
                         var prepareTransfers = core_1.createPrepareTransfers();
                         prepareTransfers(_this.seed, transfers, {})
                             .then(function (transactionTrytes) {
+                            console.log("Entering");
+                            /*getTransactionsToApprove(depth)
+                            .tap(input => console.log(input))
+                            .then(({ trunkTransaction, branchTransaction }) =>
+                                this.attachFunction(trunkTransaction, branchTransaction, mwm, transactionTrytes)
+                            )
+                            .tap(input => console.log(input))
+                            .tap(attachedTrytes => storeAndBroadcast(attachedTrytes))
+                            .tap(input => console.log(input))
+                            .then(attachedTrytes => attachedTrytes.map(t => asTransactionObject(t)))
+                            .tap(input => console.log(input))*/
                             sendTrytes(transactionTrytes, depth, mwm)
                                 .then(function (transactions) {
+                                console.log("TRANSACTIONS: ");
+                                console.log(transactions);
                                 resolve(transactions);
                             })
                                 .catch(function (error) {
@@ -204,6 +222,15 @@ var MamWriter = /** @class */ (function () {
                     })];
             });
         });
+    };
+    MamWriter.prototype.EnablePowSvr = function (enable, apiKey) {
+        if (enable) {
+            this.attachFunction = PwrSrv_1.CreateAttachToTangleWithPwrSvr(apiKey);
+        }
+        else {
+            //Resets to default Attach function
+            this.attachFunction = core_1.createAttachToTangle(this.provider);
+        }
     };
     /**
      * Useful to call after a MamWriter is created and the input seed has been previously used.
@@ -230,7 +257,7 @@ var MamWriter = /** @class */ (function () {
                                     if (this.channel.mode == Settings_1.MAM_MODE.PRIVATE || this.channel.mode == Settings_1.MAM_MODE.RESTRICTED) {
                                         address = hash_1.hash(this.channel.next_root);
                                     }
-                                    findTransactions = core_1.composeAPI(this.provider).findTransactions;
+                                    findTransactions = core_1.createFindTransactions(this.provider);
                                     return [4 /*yield*/, findTransactions({ addresses: [address] })
                                             .then(function (transactionHashes) {
                                             //If no hashes are found, we are at the end of the stream

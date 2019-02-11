@@ -18,6 +18,7 @@ export declare class MamWriter {
     private channel;
     private seed;
     private tag;
+    private attachFunction;
     /**
      * Creates a MamWriter channel for the seed. It defaults to a UNSECURE random seed with minimum security 1 and the Public channel mode.
      * @param provider The node URL that connects to the IOTA network to send the requests to.
@@ -63,6 +64,7 @@ export declare class MamWriter {
      * @returns An array of transactions that have been send to the network.
      */
     attach(payload: string, address: string, depth?: number, mwm?: number): Promise<Transaction[]>;
+    EnablePowSvr(enable: boolean, apiKey?: string): void;
     /**
      * Useful to call after a MamWriter is created and the input seed has been previously used.
      * This function makes sure that the next message that is added to the MAM stream is appended at the end of the MAM stream.

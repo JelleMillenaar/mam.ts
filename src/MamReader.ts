@@ -1,23 +1,24 @@
+import { createHttpClient } from '@iota/http-client';
 import { MAM_MODE } from './Settings';
-import { Settings } from '@iota/http-client/typings/http-client/src/settings'; 
 import { hash } from './hash';
-import { composeAPI } from '@iota/core';
+import { composeAPI, createFindTransactions, createGetTransactionObjects } from '@iota/core';
 import * as converter from '@iota/converter';
 import { Decode } from './Decode';
 import { Transaction } from '@iota/core/typings/types';
+import { Provider } from '@iota/validators/typings/types';
 
 /**
  * The MamReader can read a MAM stream in several ways. Internally tracks the state of reading. 
  */
 export class MamReader {
-    private provider : Partial<Settings>;
+    private provider : Provider;
     private sideKey : string | undefined = undefined;
     private mode : MAM_MODE;
     private nextRoot : string;
 
     constructor( provider : string, root : string, mode : MAM_MODE = MAM_MODE.PUBLIC, sideKey ?: string) {
         //Set the settings
-        this.provider = { provider : provider };
+        this.provider = createHttpClient({ provider : provider});
         this.changeMode(root, mode, sideKey);
     }
 
@@ -62,7 +63,7 @@ export class MamReader {
             }
 
             //Get the function from the IOTA API
-            const { findTransactions } : any = composeAPI( this.provider);
+            const findTransactions : any = createFindTransactions( this.provider );
             //Get the next set of transactions send to the next address from the mam stream
             findTransactions({addresses : [address]})
             .then( async (transactionHashes) => {
@@ -127,7 +128,7 @@ export class MamReader {
                     address = hash(this.nextRoot);
                 }
 
-                const { findTransactions } : any = composeAPI( this.provider );
+                const findTransactions : any = createFindTransactions( this.provider );
                 await findTransactions({addresses : [address]})
                 .then(async (transactionHashes) => {
                     //If no hashes are found, we are at the end of the stream
@@ -197,7 +198,7 @@ export class MamReader {
                 }
             }
 
-            const { getTransactionObjects } : any = composeAPI( this.provider);
+            const getTransactionObjects : any = createGetTransactionObjects( this.provider );
             getTransactionObjects(hashes)
             .then((objs) => {
                 let proccesedTxs : string[] = objs.map(tx => processTx(tx));

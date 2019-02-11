@@ -1,13 +1,13 @@
-import { createHttpClient } from '@iota/http-client'; //Added for Provider typing
+import { createHttpClient } from '@iota/http-client';
 import { keyGen } from './KeyGen';
 import { isTrytesOfExactLength, isTrytes } from '@iota/validators';
 import { Mam, MamDetails } from './node';
 import * as converter from '@iota/converter';
-import { Transaction, Transfer, Provider, AttachToTangle, Trytes } from '@iota/core/typings/types';
-import { createPrepareTransfers, createSendTrytes, createFindTransactions } from '@iota/core';
+import { Transaction, Transfer, Provider, AttachToTangle } from '@iota/core/typings/types';
+import { createPrepareTransfers, createSendTrytes, createFindTransactions, createAttachToTangle } from '@iota/core';
 import { hash } from './hash';
 import { MAM_MODE, MAM_SECURITY } from './Settings';
-import { promisify } from 'bluebird';
+import { CreateAttachToTangleWithPwrSvr } from './PwrSrv';
 
 interface channel {
     side_key : string | null;
@@ -59,7 +59,7 @@ export class MamWriter {
         }
         this.seed = seed;
         this.tag = undefined;
-        this.attachFunction = undefined; //Set default Attach function
+        this.EnablePowSrv(false); //Set default Attach function
 
         //Set the next root
         this.changeMode(mode, sideKey, security);
@@ -164,8 +164,8 @@ export class MamWriter {
                 message : payload,
                 tag : this.tag
             }];
-            const { sendTrytes } : any = createSendTrytes(this.provider, this.attachFunction);
-            const prepareTransfers = createPrepareTransfers();
+            const sendTrytes : any = createSendTrytes(this.provider, this.attachFunction);
+            const prepareTransfers : any = createPrepareTransfers();
             prepareTransfers(this.seed, transfers, {})
             .then( (transactionTrytes) => {
                 sendTrytes(transactionTrytes, depth, mwm)
@@ -182,48 +182,19 @@ export class MamWriter {
         });
     }
 
-    public EnablePowSvr(enable : boolean, apiKey : string) {
-        if(enable) {
-            this.attachFunction = promisify((trunkTransaction, branchTransaction, minWeightMagnitude, trytes, callback) : Promise<ReadonlyArray<Trytes>> => {
-                return new Promise<ReadonlyArray<Trytes>> ( (resolve, reject) => {
-                    var command = {
-                        'command'             : 'attachToTangle',
-                        'trunkTransaction'    : trunkTransaction,
-                        'branchTransaction'   : branchTransaction,
-                        'minWeightMagnitude'  : minWeightMagnitude,
-                        'trytes'              : trytes
-                    };
-                
-                    let params = {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-IOTA-API-Version': '1'
-                        },
-                        body: JSON.stringify(command),
-                        timeout: 3000 //Variable
-                    };
-                    if (apiKey) params.headers['Authorization'] = 'powsrv-token ' + apiKey;
-                
-                    const response = fetch(`https://api.powsrv.io:443`, params) //Variable
-                    .then(response => {
-                        if (response.status != 200) {
-                            reject(`failed to contact the PowSrv API: ${response.status}`);
-                        } else {
-                            response.json().then(data => {
-                                resolve(data.trytes);
-                            });
-                            //Can this even go wrong?
-                        }
-                    })
-                    .catch(error => {
-                        reject(`failed to contact the PowSrv API: ${error}`);
-                    }); 
-                });
-            });
+    /**
+     * Enabled the PowSrv remote PoW service from powsrv.io. With an API key the initial limitations are removed. Ask powsrv for an API key to use this server.
+     * @param enable Boolean value to either enable or disable the service.
+     * @param apiKey powsrv API key, required if you want to enable the service.
+     * @param timeout Timeout for API request to do the PoW in MS.
+     * @param apiServer The server of powsrv, default should be fine unless they move servers.
+     */
+    public EnablePowSrv(enable : boolean, apiKey ?: string, timeout : number = 3000, apiServer : string = "https://api.powsrv:io:443") {
+        if(enable && apiKey) {
+            this.attachFunction = CreateAttachToTangleWithPwrSvr( apiKey, timeout, apiServer );
         } else {
             //Resets to default Attach function
-            this.attachFunction = undefined;
+            this.attachFunction = createAttachToTangle(this.provider);
         }
     }
 
