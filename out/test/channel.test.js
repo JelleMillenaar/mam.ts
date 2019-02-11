@@ -106,7 +106,6 @@ var _loop_1 = function (Case) {
                 case 1:
                     //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
                     _a.sent();
-                    Case.writer.EnablePowSrv(true, "Gy3W0YwlpX2sv7ehN1NF8Q35iJSblkSKPzVv1EAZMoaqapTflHrWicN0n4j6KMIr");
                     Case.mamResult = Case.writer.create(Case.msg);
                     //Assertion 1: Compare if the object is made
                     t.not(Case.mamResult, { payload: undefined, root: undefined, address: undefined }, "We received a new MaM");
