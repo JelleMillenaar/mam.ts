@@ -1,12 +1,13 @@
-import { Settings } from '@iota/http-client/typings/http-client/src/settings'; //Added for Provider typing
+import { createHttpClient } from '@iota/http-client'; //Added for Provider typing
 import { keyGen } from './KeyGen';
 import { isTrytesOfExactLength, isTrytes } from '@iota/validators';
 import { Mam, MamDetails } from './node';
 import * as converter from '@iota/converter';
-import { Transaction, Transfer } from '@iota/core/typings/types';
-import { composeAPI, createPrepareTransfers } from '@iota/core';
+import { Transaction, Transfer, Provider, AttachToTangle, Trytes } from '@iota/core/typings/types';
+import { createPrepareTransfers, createSendTrytes, createFindTransactions } from '@iota/core';
 import { hash } from './hash';
 import { MAM_MODE, MAM_SECURITY } from './Settings';
+import { promisify } from 'bluebird';
 
 interface channel {
     side_key : string | null;
@@ -33,10 +34,12 @@ interface channel {
  * This wrapper library is based on IOTA Foundations mam.client.js, updated for Typescript and using OOP to ease the use of MAM.
  */
 export class MamWriter {
-    private provider : Partial<Settings>;
+    //private provider : Partial<Settings>;
+    private provider : Provider;
     private channel : channel;
     private seed : string;
     private tag : string;
+    private attachFunction : AttachToTangle | undefined;
 
     /**
      * Creates a MamWriter channel for the seed. It defaults to a UNSECURE random seed with minimum security 1 and the Public channel mode.
@@ -47,7 +50,7 @@ export class MamWriter {
      */
     constructor(provider: string, seed : string = keyGen(81), mode : MAM_MODE, sideKey ?: string, security : MAM_SECURITY = MAM_SECURITY.LEVEL_1) {
         //Set IOTA provider
-        this.provider = { provider : provider };
+        this.provider = createHttpClient( { provider : provider} );
 
         //Check for a valid seed
         if(!isTrytesOfExactLength(seed, 81)) {
@@ -56,6 +59,7 @@ export class MamWriter {
         }
         this.seed = seed;
         this.tag = undefined;
+        this.attachFunction = undefined; //Set default Attach function
 
         //Set the next root
         this.changeMode(mode, sideKey, security);
@@ -160,7 +164,7 @@ export class MamWriter {
                 message : payload,
                 tag : this.tag
             }];
-            const { sendTrytes } : any = composeAPI(this.provider);
+            const { sendTrytes } : any = createSendTrytes(this.provider, this.attachFunction);
             const prepareTransfers = createPrepareTransfers();
             prepareTransfers(this.seed, transfers, {})
             .then( (transactionTrytes) => {
@@ -176,6 +180,51 @@ export class MamWriter {
                 reject(`failed to attach message: ${error}`);
             });
         });
+    }
+
+    public EnablePowSvr(enable : boolean, apiKey : string) {
+        if(enable) {
+            this.attachFunction = promisify((trunkTransaction, branchTransaction, minWeightMagnitude, trytes, callback) : Promise<ReadonlyArray<Trytes>> => {
+                return new Promise<ReadonlyArray<Trytes>> ( (resolve, reject) => {
+                    var command = {
+                        'command'             : 'attachToTangle',
+                        'trunkTransaction'    : trunkTransaction,
+                        'branchTransaction'   : branchTransaction,
+                        'minWeightMagnitude'  : minWeightMagnitude,
+                        'trytes'              : trytes
+                    };
+                
+                    let params = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-IOTA-API-Version': '1'
+                        },
+                        body: JSON.stringify(command),
+                        timeout: 3000 //Variable
+                    };
+                    if (apiKey) params.headers['Authorization'] = 'powsrv-token ' + apiKey;
+                
+                    const response = fetch(`https://api.powsrv.io:443`, params) //Variable
+                    .then(response => {
+                        if (response.status != 200) {
+                            reject(`failed to contact the PowSrv API: ${response.status}`);
+                        } else {
+                            response.json().then(data => {
+                                resolve(data.trytes);
+                            });
+                            //Can this even go wrong?
+                        }
+                    })
+                    .catch(error => {
+                        reject(`failed to contact the PowSrv API: ${error}`);
+                    }); 
+                });
+            });
+        } else {
+            //Resets to default Attach function
+            this.attachFunction = undefined;
+        }
     }
 
     /**
@@ -197,7 +246,7 @@ export class MamWriter {
                     address = hash(this.channel.next_root);
                 }
 
-                const { findTransactions } : any = composeAPI( this.provider );
+                const findTransactions = createFindTransactions( this.provider );
                 await findTransactions({addresses : [address]})
                 .then((transactionHashes) => {
                     //If no hashes are found, we are at the end of the stream
