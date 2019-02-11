@@ -35,7 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var http_client_1 = require("@iota/http-client"); //Added for Provider typing
+var http_client_1 = require("@iota/http-client");
 var KeyGen_1 = require("./KeyGen");
 var validators_1 = require("@iota/validators");
 var node_1 = require("./node");
@@ -77,7 +77,7 @@ var MamWriter = /** @class */ (function () {
         }
         this.seed = seed;
         this.tag = undefined;
-        this.EnablePowSvr(false); //Set default Attach function
+        this.EnablePowSrv(false); //Set default Attach function
         //Set the next root
         this.changeMode(mode, sideKey, security);
     }
@@ -190,26 +190,11 @@ var MamWriter = /** @class */ (function () {
                                 tag: _this.tag
                             }];
                         var sendTrytes = core_1.createSendTrytes(_this.provider, _this.attachFunction);
-                        var getTransactionsToApprove = core_1.createGetTransactionsToApprove(_this.provider);
-                        var storeAndBroadcast = core_1.createStoreAndBroadcast(_this.provider);
                         var prepareTransfers = core_1.createPrepareTransfers();
                         prepareTransfers(_this.seed, transfers, {})
                             .then(function (transactionTrytes) {
-                            console.log("Entering");
-                            /*getTransactionsToApprove(depth)
-                            .tap(input => console.log(input))
-                            .then(({ trunkTransaction, branchTransaction }) =>
-                                this.attachFunction(trunkTransaction, branchTransaction, mwm, transactionTrytes)
-                            )
-                            .tap(input => console.log(input))
-                            .tap(attachedTrytes => storeAndBroadcast(attachedTrytes))
-                            .tap(input => console.log(input))
-                            .then(attachedTrytes => attachedTrytes.map(t => asTransactionObject(t)))
-                            .tap(input => console.log(input))*/
                             sendTrytes(transactionTrytes, depth, mwm)
                                 .then(function (transactions) {
-                                console.log("TRANSACTIONS: ");
-                                console.log(transactions);
                                 resolve(transactions);
                             })
                                 .catch(function (error) {
@@ -223,9 +208,18 @@ var MamWriter = /** @class */ (function () {
             });
         });
     };
-    MamWriter.prototype.EnablePowSvr = function (enable, apiKey) {
-        if (enable) {
-            this.attachFunction = PwrSrv_1.CreateAttachToTangleWithPwrSvr(apiKey);
+    /**
+     * Enabled the PowSrv remote PoW service from powsrv.io. With an API key the initial limitations are removed. Ask powsrv for an API key to use this server.
+     * @param enable Boolean value to either enable or disable the service.
+     * @param apiKey powsrv API key, required if you want to enable the service.
+     * @param timeout Timeout for API request to do the PoW in MS.
+     * @param apiServer The server of powsrv, default should be fine unless they move servers.
+     */
+    MamWriter.prototype.EnablePowSrv = function (enable, apiKey, timeout, apiServer) {
+        if (timeout === void 0) { timeout = 3000; }
+        if (apiServer === void 0) { apiServer = "https://api.powsrv.io:443"; }
+        if (enable && apiKey) {
+            this.attachFunction = PwrSrv_1.CreateAttachToTangleWithPwrSvr(apiKey, timeout, apiServer);
         }
         else {
             //Resets to default Attach function

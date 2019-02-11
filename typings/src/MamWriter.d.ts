@@ -64,7 +64,14 @@ export declare class MamWriter {
      * @returns An array of transactions that have been send to the network.
      */
     attach(payload: string, address: string, depth?: number, mwm?: number): Promise<Transaction[]>;
-    EnablePowSvr(enable: boolean, apiKey?: string): void;
+    /**
+     * Enabled the PowSrv remote PoW service from powsrv.io. With an API key the initial limitations are removed. Ask powsrv for an API key to use this server.
+     * @param enable Boolean value to either enable or disable the service.
+     * @param apiKey powsrv API key, required if you want to enable the service.
+     * @param timeout Timeout for API request to do the PoW in MS.
+     * @param apiServer The server of powsrv, default should be fine unless they move servers.
+     */
+    EnablePowSrv(enable: boolean, apiKey?: string, timeout?: number, apiServer?: string): void;
     /**
      * Useful to call after a MamWriter is created and the input seed has been previously used.
      * This function makes sure that the next message that is added to the MAM stream is appended at the end of the MAM stream.

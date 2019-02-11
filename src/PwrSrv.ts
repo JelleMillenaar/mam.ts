@@ -23,16 +23,12 @@ export function CreateAttachToTangleWithPwrSvr( apiKey : string, timeout : numbe
                 timeout: timeout //Variable
             };
             if (apiKey) params.headers['Authorization'] = 'powsrv-token ' + apiKey;
-            console.log("Sending API Request");
             fetch(apiServer, params) //Variable
             .then(response => {
                 if (response.status != 200) {
                     reject(`failed to contact the PowSrv API: ${response.status}`);
                 } else {
                     response.json().then(data => {
-                        console.log("Data:");
-                        console.log(data);
-                        debugger;
                         resolve(data.trytes);
                     });
                     //Can this even go wrong?

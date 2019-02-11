@@ -35,6 +35,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var http_client_1 = require("@iota/http-client");
 var Settings_1 = require("./Settings");
 var hash_1 = require("./hash");
 var core_1 = require("@iota/core");
@@ -48,7 +49,7 @@ var MamReader = /** @class */ (function () {
         if (mode === void 0) { mode = Settings_1.MAM_MODE.PUBLIC; }
         this.sideKey = undefined;
         //Set the settings
-        this.provider = { provider: provider };
+        this.provider = http_client_1.createHttpClient({ provider: provider });
         this.changeMode(root, mode, sideKey);
     }
     /**
@@ -92,7 +93,7 @@ var MamReader = /** @class */ (function () {
                             address = hash_1.hash(_this.nextRoot);
                         }
                         //Get the function from the IOTA API
-                        var findTransactions = core_1.composeAPI(_this.provider).findTransactions;
+                        var findTransactions = core_1.createFindTransactions(_this.provider);
                         //Get the next set of transactions send to the next address from the mam stream
                         findTransactions({ addresses: [address] })
                             .then(function (transactionHashes) { return __awaiter(_this, void 0, void 0, function () {
@@ -174,7 +175,7 @@ var MamReader = /** @class */ (function () {
                                     if (this.mode == Settings_1.MAM_MODE.PRIVATE || this.mode == Settings_1.MAM_MODE.RESTRICTED) {
                                         address = hash_1.hash(this.nextRoot);
                                     }
-                                    findTransactions = core_1.composeAPI(this.provider).findTransactions;
+                                    findTransactions = core_1.createFindTransactions(this.provider);
                                     return [4 /*yield*/, findTransactions({ addresses: [address] })
                                             .then(function (transactionHashes) { return __awaiter(_this, void 0, void 0, function () {
                                             var _this = this;
@@ -262,7 +263,7 @@ var MamReader = /** @class */ (function () {
                                 return Msg;
                             }
                         };
-                        var getTransactionObjects = core_1.composeAPI(_this.provider).getTransactionObjects;
+                        var getTransactionObjects = core_1.createGetTransactionObjects(_this.provider);
                         getTransactionObjects(hashes)
                             .then(function (objs) {
                             var proccesedTxs = objs.map(function (tx) { return processTx(tx); });

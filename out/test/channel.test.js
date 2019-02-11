@@ -48,12 +48,11 @@ var KeyGen_1 = require("../src/KeyGen");
 var TestCase = /** @class */ (function () {
     function TestCase(
     //Settings
-    testName, security, mode, seed, sideKey, powSrvApiKey, msg, tag) {
+    testName, security, mode, seed, sideKey, msg, tag) {
         this.testName = testName;
         this.security = security;
         this.mode = mode;
         this.sideKey = sideKey;
-        this.powSrvApiKey = powSrvApiKey;
         this.msg = msg;
         this.tag = tag;
         //Create the Writer channel
@@ -80,12 +79,12 @@ var TestCase = /** @class */ (function () {
 var Seed = KeyGen_1.keyGen(81);
 var TestCases = [];
 //Create the test cases
-TestCases.push(new TestCase("Public Mode", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.PUBLIC, Seed, undefined, null, "Hello World!", undefined));
-TestCases.push(new TestCase("Catchup Mode & Bad Tag", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.PUBLIC, Seed, undefined, "Gy3W0YwlpX2sv7ehN1NF8Q35iJSblkSKPzVv1EAZMoaqapTflHrWicN0n4j6KMIr", "Hello World the 2nd!", "BadTag2"));
-TestCases.push(new TestCase("Private Mode", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.PRIVATE, undefined, undefined, "Gy3W0YwlpX2sv7ehN1NF8Q35iJSblkSKPzVv1EAZMoaqapTflHrWicN0n4j6KMIr", "Hello World: Private", undefined));
-TestCases.push(new TestCase("Restricted Mode", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.RESTRICTED, undefined, "Sidekey", "Gy3W0YwlpX2sv7ehN1NF8Q35iJSblkSKPzVv1EAZMoaqapTflHrWicN0n4j6KMIr", "Hello World: Restricted", undefined));
-TestCases.push(new TestCase("Private Mode, Security 2, Long Message & Tag", Settings_1.MAM_SECURITY.LEVEL_2, Settings_1.MAM_MODE.PRIVATE, undefined, undefined, "Gy3W0YwlpX2sv7ehN1NF8Q35iJSblkSKPzVv1EAZMoaqapTflHrWicN0n4j6KMIr", "Longer Message".repeat(100), "MAM9TS9TEST"));
-TestCases.push(new TestCase("Restricted Mode, Security 3, Long Key & Long Tag", Settings_1.MAM_SECURITY.LEVEL_3, Settings_1.MAM_MODE.RESTRICTED, undefined, "I don't know where I am".repeat(10), "Gy3W0YwlpX2sv7ehN1NF8Q35iJSblkSKPzVv1EAZMoaqapTflHrWicN0n4j6KMIr", "Restricted Stuff", "MAM9TS9TEST".repeat(6)));
+TestCases.push(new TestCase("Public Mode", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.PUBLIC, Seed, undefined, "Hello World!", undefined));
+TestCases.push(new TestCase("Catchup Mode & Bad Tag", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.PUBLIC, Seed, undefined, "Hello World the 2nd!", "BadTag2"));
+TestCases.push(new TestCase("Private Mode", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.PRIVATE, undefined, undefined, "Hello World: Private", undefined));
+TestCases.push(new TestCase("Restricted Mode", Settings_1.MAM_SECURITY.LEVEL_1, Settings_1.MAM_MODE.RESTRICTED, undefined, "Sidekey", "Hello World: Restricted", undefined));
+TestCases.push(new TestCase("Private Mode, Security 2, Long Message & Tag", Settings_1.MAM_SECURITY.LEVEL_2, Settings_1.MAM_MODE.PRIVATE, undefined, undefined, "Longer Message".repeat(100), "MAM9TS9TEST"));
+TestCases.push(new TestCase("Restricted Mode, Security 3, Long Key & Long Tag", Settings_1.MAM_SECURITY.LEVEL_3, Settings_1.MAM_MODE.RESTRICTED, undefined, "I don't know where I am".repeat(10), "Restricted Stuff", "MAM9TS9TEST".repeat(6)));
 var _loop_1 = function (Case) {
     //All code to later add the test cases for the MamListener
     //let listener : MamListener = new MamListener('https://testnet140.tangle.works');
@@ -107,6 +106,7 @@ var _loop_1 = function (Case) {
                 case 1:
                     //Assertion plans ensure tests only pass when a specific number of assertions have been executed.
                     _a.sent();
+                    Case.writer.EnablePowSrv(true, "Gy3W0YwlpX2sv7ehN1NF8Q35iJSblkSKPzVv1EAZMoaqapTflHrWicN0n4j6KMIr");
                     Case.mamResult = Case.writer.create(Case.msg);
                     //Assertion 1: Compare if the object is made
                     t.not(Case.mamResult, { payload: undefined, root: undefined, address: undefined }, "We received a new MaM");
@@ -119,11 +119,7 @@ var _loop_1 = function (Case) {
         var attach, payload, test, test2;
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0:
-                    if (Case.powSrvApiKey) {
-                        Case.writer.EnablePowSvr(true, Case.powSrvApiKey);
-                    }
-                    return [4 /*yield*/, Case.writer.attach(Case.mamResult.payload, Case.mamResult.address, undefined, 14)];
+                case 0: return [4 /*yield*/, Case.writer.attach(Case.mamResult.payload, Case.mamResult.address, undefined, 14)];
                 case 1:
                     attach = _a.sent();
                     payload = "";

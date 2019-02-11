@@ -189,7 +189,7 @@ export class MamWriter {
      * @param timeout Timeout for API request to do the PoW in MS.
      * @param apiServer The server of powsrv, default should be fine unless they move servers.
      */
-    public EnablePowSrv(enable : boolean, apiKey ?: string, timeout : number = 3000, apiServer : string = "https://api.powsrv:io:443") {
+    public EnablePowSrv(enable : boolean, apiKey ?: string, timeout : number = 3000, apiServer : string = "https://api.powsrv.io:443") {
         if(enable && apiKey) {
             this.attachFunction = CreateAttachToTangleWithPwrSvr( apiKey, timeout, apiServer );
         } else {
