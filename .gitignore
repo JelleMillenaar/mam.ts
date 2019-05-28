@@ -8,3 +8,8 @@ yarn-error.log
 # Dependency directory
 node_modules
 
+test/spam.test.ts
+out/test/spam.test.js
+out/test/spam.test.js.map
+typings/test/spam.d.ts
+typings/test/spam.test.d.ts
